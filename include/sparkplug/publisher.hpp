@@ -6,6 +6,7 @@
 #include <expected>
 #include <memory>
 #include <string>
+#include <vector>
 
 typedef void *MQTTAsync;
 
@@ -46,6 +47,8 @@ private:
   MQTTAsync client_;
   uint64_t seq_num_{0};
   uint64_t bd_seq_num_{0};
+
+  std::vector<uint8_t> death_payload_data_;
 };
 
 } // namespace sparkplug

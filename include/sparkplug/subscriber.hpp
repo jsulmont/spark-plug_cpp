@@ -8,8 +8,8 @@
 #include <memory>
 #include <string>
 
-struct MQTTAsync_struct;
-typedef MQTTAsync_struct *MQTTAsync;
+// Forward declare the opaque MQTT handle type - use void* to match the library
+typedef void *MQTTAsync;
 
 namespace sparkplug {
 
@@ -42,9 +42,11 @@ public:
   [[nodiscard]] std::expected<void, std::string>
   subscribe_node(std::string_view edge_node_id);
 
+  // Make callback_ accessible to static callback function
+  MessageCallback callback_;
+
 private:
   Config config_;
-  MessageCallback callback_;
   MQTTAsync client_;
 };
 

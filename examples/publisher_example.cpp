@@ -1,4 +1,4 @@
-// expamples/publisher_example.cpp
+// examples/publisher_example.cpp
 #include <iostream>
 #include <sparkplug/payload_builder.hpp>
 #include <sparkplug/publisher.hpp>
@@ -23,6 +23,7 @@ int main() {
 
   sparkplug::PayloadBuilder birth;
   birth.set_seq(0)
+      .add_metric("bdSeq", static_cast<uint64_t>(0)) // REQUIRED!
       .add_metric("Node Control/Rebirth", false)
       .add_metric("Node Control/Reboot", false)
       .add_metric("Properties/Hardware", "ARM64")
