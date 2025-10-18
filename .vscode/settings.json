@@ -1,0 +1,16 @@
+{
+    "cmake.configureOnOpen": true,
+    "cmake.cmakePath": "/opt/homebrew/bin/cmake",
+    "C_Cpp.default.compilerPath": "/opt/homebrew/opt/llvm/bin/clang++",
+    "C_Cpp.default.cppStandard": "c++23",
+    "C_Cpp.default.cStandard": "c17",
+    "C_Cpp.default.intelliSenseMode": "macos-clang-arm64",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "files.associations": {
+        "*.proto": "proto3",
+        "expected": "cpp",
+        "format": "cpp",
+        "ranges": "cpp"
+    },
+    "cmake.buildDirectory": "${workspaceFolder}/build"
+}

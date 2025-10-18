@@ -1,0 +1,3 @@
+# exmaples/CMakeLists.txt
+add_executable(publisher_example publisher_example.cpp)
+target_link_libraries(publisher_example PRIVATE sparkplug_cpp)
