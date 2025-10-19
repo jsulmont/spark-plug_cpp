@@ -17,8 +17,9 @@
     // clang-format configuration
     "editor.formatOnSave": true,
     "C_Cpp.formatting": "clangFormat",
-    "C_Cpp.clang_format_path": "/opt/homebrew/opt/llvm/bin/clang-format",
+    "C_Cpp.clang_format_path": "/opt/homebrew/bin/clang-format",
     "C_Cpp.clang_format_style": "file",
+    "C_Cpp.clang_format_fallbackStyle": "LLVM",
     "[cpp]": {
         "editor.defaultFormatter": "ms-vscode.cpptools",
         "editor.formatOnSave": true
