@@ -43,18 +43,12 @@ jobs:
             mosquitto \
             mosquitto-clients
 
-      - name: Install Protobuf
-        run: |
-          sudo apt-get install -y \
-            libprotobuf-dev \
-            protobuf-compiler
-
       - name: Cache dependencies
         id: cache-deps
         uses: actions/cache@v4
         with:
           path: /usr/local
-          key: deps-abseil-20240722.0-paho-1.3.13-clang18-${{ runner.os }}
+          key: deps-protobuf-28.3-abseil-20240722.0-paho-1.3.13-clang18-libc++-${{ runner.os }}
 
       - name: Build and install Abseil
         if: steps.cache-deps.outputs.cache-hit != 'true'
@@ -66,9 +60,30 @@ jobs:
             -DCMAKE_CXX_COMPILER=clang++-18 \
             -DCMAKE_C_COMPILER=clang-18 \
             -DCMAKE_CXX_STANDARD=17 \
+            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -lc++abi" \
             -DCMAKE_BUILD_TYPE=Release \
             -DABSL_BUILD_TESTING=OFF \
             -DABSL_USE_GOOGLETEST_HEAD=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          cmake --build . -j$(nproc)
+          sudo cmake --install .
+
+      - name: Build and install Protobuf
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v28.3 https://github.com/protocolbuffers/protobuf.git
+          cd protobuf
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_STANDARD=17 \
+            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -lc++abi" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -Dprotobuf_BUILD_TESTS=OFF \
+            -Dprotobuf_ABSL_PROVIDER=package \
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build . -j$(nproc)
           sudo cmake --install .
