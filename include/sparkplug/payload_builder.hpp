@@ -15,7 +15,7 @@ namespace sparkplug {
 
 namespace detail {
 
-template <typename T> constexpr DataType get_datatype() {
+template <typename T> consteval DataType get_datatype() {
   using BaseT = std::remove_cvref_t<T>;
   if constexpr (std::is_same_v<BaseT, int8_t>)
     return DataType::Int8;
@@ -191,7 +191,7 @@ public:
   // Build and access
   [[nodiscard]] std::vector<uint8_t> build() const;
   [[nodiscard]] const org::eclipse::tahu::protobuf::Payload &payload() const;
-  [[nodiscard]] org::eclipse::tahu::protobuf::Payload &mutable_payload() {
+  [[nodiscard]] org::eclipse::tahu::protobuf::Payload &mutable_payload() noexcept {
     return payload_;
   }
 

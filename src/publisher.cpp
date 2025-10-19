@@ -1,4 +1,4 @@
-// src/publisher.cpp - FIXED for binary NDEATH
+// src/publisher.cpp
 #include "sparkplug/publisher.hpp"
 #include <MQTTAsync.h>
 #include <cstring>
@@ -7,53 +7,61 @@
 
 namespace sparkplug {
 
-Publisher::Publisher(Config config)
-    : config_(std::move(config)), client_(nullptr) {}
+namespace {
+// Timeout and connection constants
+constexpr int CONNECTION_TIMEOUT_MS = 5000;
+constexpr int DISCONNECT_TIMEOUT_MS = 11000;
+constexpr int POLL_INTERVAL_MS = 100;
+constexpr uint64_t SEQ_NUMBER_MAX = 256;
+} // namespace
 
-Publisher::~Publisher() {
-  if (client_) {
-    if (is_connected_) {
-      (void)disconnect();
-    }
-    MQTTAsync_destroy(&client_);
+void MQTTAsyncDeleter::operator()(MQTTAsync *client) const noexcept {
+  if (client && *client) {
+    MQTTAsync_destroy(client);
   }
 }
 
+Publisher::Publisher(Config config) : config_(std::move(config)) {}
+
+Publisher::~Publisher() {
+  if (client_ && is_connected_) {
+    (void)disconnect();
+  }
+  // unique_ptr will automatically call MQTTAsyncDeleter
+}
+
 Publisher::Publisher(Publisher &&other) noexcept
-    : config_(std::move(other.config_)), client_(other.client_),
+    : config_(std::move(other.config_)), client_(std::move(other.client_)),
       seq_num_(other.seq_num_), bd_seq_num_(other.bd_seq_num_),
       death_payload_data_(std::move(other.death_payload_data_)),
       last_birth_payload_(std::move(other.last_birth_payload_)),
       is_connected_(other.is_connected_) {
-  other.client_ = nullptr;
   other.is_connected_ = false;
 }
 
 Publisher &Publisher::operator=(Publisher &&other) noexcept {
   if (this != &other) {
-    if (client_) {
-      MQTTAsync_destroy(&client_);
-    }
     config_ = std::move(other.config_);
-    client_ = other.client_;
+    client_ = std::move(other.client_);
     seq_num_ = other.seq_num_;
     bd_seq_num_ = other.bd_seq_num_;
     death_payload_data_ = std::move(other.death_payload_data_);
     last_birth_payload_ = std::move(other.last_birth_payload_);
     is_connected_ = other.is_connected_;
-    other.client_ = nullptr;
     other.is_connected_ = false;
   }
   return *this;
 }
 
 std::expected<void, std::string> Publisher::connect() {
-  int rc = MQTTAsync_create(&client_, config_.broker_url.c_str(),
+  MQTTAsync raw_client = nullptr;
+  int rc = MQTTAsync_create(&raw_client, config_.broker_url.c_str(),
                             config_.client_id.c_str(),
                             MQTTCLIENT_PERSISTENCE_NONE, nullptr);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to create client: {}", rc));
   }
+  client_ = MQTTAsyncHandle(&raw_client, MQTTAsyncDeleter{});
 
   // Prepare NDEATH payload BEFORE connecting
   PayloadBuilder death_payload;
@@ -86,18 +94,17 @@ std::expected<void, std::string> Publisher::connect() {
   conn_opts.will = &will;
 
   // Connect to broker
-  rc = MQTTAsync_connect(client_, &conn_opts);
+  rc = MQTTAsync_connect(*client_, &conn_opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to connect: {}", rc));
   }
 
   // Wait for connection with timeout
-  int timeout_ms = 5000;
   int elapsed_ms = 0;
-  while (MQTTAsync_isConnected(client_) == 0) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    elapsed_ms += 100;
-    if (elapsed_ms >= timeout_ms) {
+  while (MQTTAsync_isConnected(*client_) == 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
+    elapsed_ms += POLL_INTERVAL_MS;
+    if (elapsed_ms >= CONNECTION_TIMEOUT_MS) {
       return std::unexpected("Connection timeout");
     }
   }
@@ -113,18 +120,17 @@ std::expected<void, std::string> Publisher::disconnect() {
 
   MQTTAsync_disconnectOptions opts = MQTTAsync_disconnectOptions_initializer;
 
-  int rc = MQTTAsync_disconnect(client_, &opts);
+  int rc = MQTTAsync_disconnect(*client_, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to disconnect: {}", rc));
   }
 
   // Wait for disconnect
-  int timeout_ms = 11000;
   int elapsed_ms = 0;
-  while (MQTTAsync_isConnected(client_) != 0) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    elapsed_ms += 100;
-    if (elapsed_ms >= timeout_ms) {
+  while (MQTTAsync_isConnected(*client_) != 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
+    elapsed_ms += POLL_INTERVAL_MS;
+    if (elapsed_ms >= DISCONNECT_TIMEOUT_MS) {
       break;
     }
   }
@@ -135,7 +141,7 @@ std::expected<void, std::string> Publisher::disconnect() {
 
 std::expected<void, std::string>
 Publisher::publish_message(const Topic &topic,
-                           const std::vector<uint8_t> &payload_data) {
+                           std::span<const uint8_t> payload_data) {
   if (!client_ || !is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -151,7 +157,7 @@ Publisher::publish_message(const Topic &topic,
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
-  int rc = MQTTAsync_sendMessage(client_, topic_str.c_str(), &msg, &opts);
+  int rc = MQTTAsync_sendMessage(*client_, topic_str.c_str(), &msg, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to publish: {}", rc));
   }
@@ -209,7 +215,7 @@ Publisher::publish_data(PayloadBuilder &payload) {
     return std::unexpected("Not connected");
   }
 
-  seq_num_ = (seq_num_ + 1) % 256;
+  seq_num_ = (seq_num_ + 1) % SEQ_NUMBER_MAX;
 
   if (!payload.has_seq()) {
     payload.set_seq(seq_num_);

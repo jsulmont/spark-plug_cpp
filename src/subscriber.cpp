@@ -4,36 +4,38 @@
 #include <format>
 #include <iostream>
 #include <thread>
+#include <utility>
 
 namespace sparkplug {
 
+namespace {
+// Timeout and connection constants
+constexpr int CONNECTION_TIMEOUT_MS = 5000;
+constexpr int DISCONNECT_TIMEOUT_MS = 10000;
+constexpr int POLL_INTERVAL_MS = 100;
+constexpr uint64_t SEQ_NUMBER_MAX = 256;
+constexpr int DEFAULT_KEEP_ALIVE_INTERVAL = 60;
+} // namespace
+
 // Fix initialization order to match declaration
 Subscriber::Subscriber(Config config, MessageCallback callback)
-    : callback_(std::move(callback)), config_(std::move(config)),
-      client_(nullptr) {}
+    : callback_(std::move(callback)), config_(std::move(config)) {}
 
 Subscriber::~Subscriber() {
-  if (client_) {
-    MQTTAsync_destroy(&client_);
-  }
+  // unique_ptr will automatically call MQTTAsyncDeleter
 }
 
 Subscriber::Subscriber(Subscriber &&other) noexcept
     : callback_(std::move(other.callback_)), config_(std::move(other.config_)),
-      client_(other.client_), node_states_(std::move(other.node_states_)) {
-  other.client_ = nullptr;
-}
+      client_(std::move(other.client_)),
+      node_states_(std::move(other.node_states_)) {}
 
 Subscriber &Subscriber::operator=(Subscriber &&other) noexcept {
   if (this != &other) {
-    if (client_) {
-      MQTTAsync_destroy(&client_);
-    }
     callback_ = std::move(other.callback_);
     config_ = std::move(other.config_);
-    client_ = other.client_;
+    client_ = std::move(other.client_);
     node_states_ = std::move(other.node_states_);
-    other.client_ = nullptr;
   }
   return *this;
 }
@@ -117,7 +119,7 @@ bool Subscriber::validate_message(
     // Validate sequence number
     if (payload.has_seq()) {
       uint64_t seq = payload.seq();
-      uint64_t expected_seq = (state.last_seq + 1) % 256;
+      uint64_t expected_seq = (state.last_seq + 1) % SEQ_NUMBER_MAX;
 
       if (seq != expected_seq) {
         std::cerr << "WARNING: Sequence number gap for " << node_id << " (got "
@@ -141,9 +143,14 @@ bool Subscriber::validate_message(
     return true;
   }
 
-  default:
+  case MessageType::DDEATH:
+  case MessageType::NCMD:
+  case MessageType::DCMD:
+  case MessageType::STATE:
+    // These message types don't require sequence validation
     return true;
   }
+  std::unreachable();
 }
 
 void Subscriber::update_node_state(
@@ -233,35 +240,36 @@ static void on_connection_lost(void *context, char *cause) {
 }
 
 std::expected<void, std::string> Subscriber::connect() {
-  int rc = MQTTAsync_create(&client_, config_.broker_url.c_str(),
+  MQTTAsync raw_client = nullptr;
+  int rc = MQTTAsync_create(&raw_client, config_.broker_url.c_str(),
                             config_.client_id.c_str(),
                             MQTTCLIENT_PERSISTENCE_NONE, nullptr);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to create client: {}", rc));
   }
+  client_ = MQTTAsyncHandle(&raw_client, MQTTAsyncDeleter{});
 
-  rc = MQTTAsync_setCallbacks(client_, this, on_connection_lost,
+  rc = MQTTAsync_setCallbacks(*client_, this, on_connection_lost,
                               on_message_arrived, nullptr);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to set callbacks: {}", rc));
   }
 
   MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
-  conn_opts.keepAliveInterval = 60;
+  conn_opts.keepAliveInterval = DEFAULT_KEEP_ALIVE_INTERVAL;
   conn_opts.cleansession = config_.clean_session;
 
-  rc = MQTTAsync_connect(client_, &conn_opts);
+  rc = MQTTAsync_connect(*client_, &conn_opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to connect: {}", rc));
   }
 
   // Wait for connection
-  int timeout_ms = 5000;
   int elapsed_ms = 0;
-  while (MQTTAsync_isConnected(client_) == 0) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    elapsed_ms += 100;
-    if (elapsed_ms >= timeout_ms) {
+  while (MQTTAsync_isConnected(*client_) == 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
+    elapsed_ms += POLL_INTERVAL_MS;
+    if (elapsed_ms >= CONNECTION_TIMEOUT_MS) {
       return std::unexpected("Connection timeout");
     }
   }
@@ -275,9 +283,9 @@ std::expected<void, std::string> Subscriber::disconnect() {
   }
 
   MQTTAsync_disconnectOptions opts = MQTTAsync_disconnectOptions_initializer;
-  opts.timeout = 10000;
+  opts.timeout = DISCONNECT_TIMEOUT_MS;
 
-  int rc = MQTTAsync_disconnect(client_, &opts);
+  int rc = MQTTAsync_disconnect(*client_, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to disconnect: {}", rc));
   }
@@ -294,7 +302,7 @@ std::expected<void, std::string> Subscriber::subscribe_all() {
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
-  int rc = MQTTAsync_subscribe(client_, topic.c_str(), config_.qos, &opts);
+  int rc = MQTTAsync_subscribe(*client_, topic.c_str(), config_.qos, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to subscribe: {}", rc));
   }
@@ -313,7 +321,7 @@ Subscriber::subscribe_node(std::string_view edge_node_id) {
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
-  int rc = MQTTAsync_subscribe(client_, topic.c_str(), config_.qos, &opts);
+  int rc = MQTTAsync_subscribe(*client_, topic.c_str(), config_.qos, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to subscribe: {}", rc));
   }
@@ -331,7 +339,7 @@ Subscriber::subscribe_state(std::string_view host_id) {
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
-  int rc = MQTTAsync_subscribe(client_, topic.c_str(), config_.qos, &opts);
+  int rc = MQTTAsync_subscribe(*client_, topic.c_str(), config_.qos, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to subscribe: {}", rc));
   }
@@ -339,13 +347,13 @@ Subscriber::subscribe_state(std::string_view host_id) {
   return {};
 }
 
-const Subscriber::NodeState *
-Subscriber::get_node_state(const std::string &edge_node_id) const {
-  auto it = node_states_.find(edge_node_id);
+std::optional<std::reference_wrapper<const Subscriber::NodeState>>
+Subscriber::get_node_state(std::string_view edge_node_id) const {
+  auto it = node_states_.find(std::string(edge_node_id));
   if (it != node_states_.end()) {
-    return &it->second;
+    return std::cref(it->second);
   }
-  return nullptr;
+  return std::nullopt;
 }
 
 } // namespace sparkplug

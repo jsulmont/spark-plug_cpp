@@ -1,14 +1,14 @@
 // include/sparkplug/publisher.hpp
 #pragma once
 
+#include "mqtt_handle.hpp"
 #include "payload_builder.hpp"
 #include "topic.hpp"
 #include <expected>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
-
-typedef void *MQTTAsync;
 
 namespace sparkplug {
 
@@ -55,7 +55,7 @@ public:
 
 private:
   Config config_;
-  MQTTAsync client_;
+  MQTTAsyncHandle client_;
   uint64_t seq_num_{0};    // Message sequence (0-255)
   uint64_t bd_seq_num_{0}; // Birth/Death sequence
 
@@ -68,7 +68,7 @@ private:
   bool is_connected_{false};
 
   [[nodiscard]] std::expected<void, std::string>
-  publish_message(const Topic &topic, const std::vector<uint8_t> &payload_data);
+  publish_message(const Topic &topic, std::span<const uint8_t> payload_data);
 };
 
 } // namespace sparkplug

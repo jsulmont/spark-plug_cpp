@@ -1,15 +1,15 @@
 // include/sparkplug/subscriber.hpp
 #pragma once
 
+#include "mqtt_handle.hpp"
 #include "sparkplug_b.pb.h"
 #include "topic.hpp"
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
-
-typedef void *MQTTAsync;
 
 namespace sparkplug {
 
@@ -58,8 +58,8 @@ public:
   subscribe_state(std::string_view host_id);
 
   // Get node state for monitoring
-  [[nodiscard]] const NodeState *
-  get_node_state(const std::string &edge_node_id) const;
+  [[nodiscard]] std::optional<std::reference_wrapper<const NodeState>>
+  get_node_state(std::string_view edge_node_id) const;
 
   // Internal: Update node state (called from MQTT callback)
   void update_node_state(const Topic &topic,
@@ -70,7 +70,7 @@ public:
 
 private:
   Config config_;
-  MQTTAsync client_;
+  MQTTAsyncHandle client_;
 
   // Track state of each edge node for validation
   std::unordered_map<std::string, NodeState> node_states_;

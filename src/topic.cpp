@@ -3,14 +3,17 @@
 #include <algorithm>
 #include <format>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 namespace sparkplug {
 
 namespace {
-constexpr std::string_view NAMESPACE = "spBv1.0";
 
-std::string_view message_type_to_string(MessageType type) {
+using namespace std::string_view_literals;
+constexpr auto NAMESPACE = "spBv1.0"sv;
+
+constexpr std::string_view message_type_to_string(MessageType type) {
   switch (type) {
   case MessageType::NBIRTH:
     return "NBIRTH";
@@ -31,7 +34,7 @@ std::string_view message_type_to_string(MessageType type) {
   case MessageType::STATE:
     return "STATE";
   }
-  return "UNKNOWN";
+  std::unreachable();
 }
 
 std::expected<MessageType, std::string>
@@ -75,12 +78,8 @@ std::string Topic::to_string() const {
 std::expected<Topic, std::string> Topic::parse(std::string_view topic_str) {
   auto parts =
       topic_str | std::views::split('/') |
-      std::views::transform([](auto &&rng) {
-        return std::string_view(&*rng.begin(), std::ranges::distance(rng));
-      });
-
-  std::vector<std::string_view> elements(parts.begin(), parts.end());
-
+      std::views::transform([](auto &&rng) { return std::string_view(rng); });
+  auto elements = parts | std::ranges::to<std::vector>();
   if (elements.size() < 2) {
     return std::unexpected("Invalid topic format");
   }
