@@ -33,10 +33,8 @@ if(APPLE)
     set(Protobuf_INCLUDE_DIR "/opt/homebrew/include")
     set(Protobuf_PROTOC_EXECUTABLE "/opt/homebrew/bin/protoc")
 elseif(UNIX)
-    # Linux: Use system clang with libc++
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
-    add_link_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
-    add_link_options($<$<COMPILE_LANGUAGE:CXX>:-lc++abi>)
+    # Linux: Use libstdc++ (default) for compatibility with system packages
+    # No special flags needed - libstdc++ is the default
 endif()
 
 # Common warning flags

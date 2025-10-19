@@ -31,78 +31,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             clang-18 \
-            libc++-18-dev \
-            libc++abi-18-dev \
             cmake \
             ninja-build \
             mosquitto \
-            mosquitto-clients
-
-      - name: Cache dependencies
-        id: cache-deps
-        uses: actions/cache@v4
-        with:
-          path: /usr/local
-          key: deps-protobuf-28.3-abseil-20240722.0-paho-1.3.13-clang18-libc++-${{ runner.os }}
-
-      - name: Build and install Abseil
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch 20240722.0 https://github.com/abseil/abseil-cpp.git
-          cd abseil-cpp
-          mkdir build && cd build
-          cmake .. \
-            -DCMAKE_CXX_COMPILER=clang++-18 \
-            -DCMAKE_C_COMPILER=clang-18 \
-            -DCMAKE_CXX_STANDARD=17 \
-            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
-            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -lc++abi" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DABSL_BUILD_TESTING=OFF \
-            -DABSL_USE_GOOGLETEST_HEAD=OFF \
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-          cmake --build . -j$(nproc)
-          sudo cmake --install .
-
-      - name: Build and install Protobuf
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch v28.3 https://github.com/protocolbuffers/protobuf.git
-          cd protobuf
-          mkdir build && cd build
-          cmake .. \
-            -DCMAKE_CXX_COMPILER=clang++-18 \
-            -DCMAKE_C_COMPILER=clang-18 \
-            -DCMAKE_CXX_STANDARD=17 \
-            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
-            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -lc++abi" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -Dprotobuf_BUILD_TESTS=OFF \
-            -Dprotobuf_ABSL_PROVIDER=package \
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-          cmake --build . -j$(nproc)
-          sudo cmake --install .
-
-      - name: Build and install Eclipse Paho MQTT C
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch v1.3.13 https://github.com/eclipse/paho.mqtt.c.git
-          cd paho.mqtt.c
-          mkdir build && cd build
-          cmake .. \
-            -DCMAKE_C_COMPILER=clang-18 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPAHO_WITH_SSL=OFF \
-            -DPAHO_BUILD_STATIC=OFF \
-            -DPAHO_BUILD_DOCUMENTATION=OFF \
-            -DPAHO_BUILD_SAMPLES=OFF
-          cmake --build . -j$(nproc)
-          sudo cmake --install .
+            mosquitto-clients \
+            libprotobuf-dev \
+            protobuf-compiler \
+            libabsl-dev \
+            libpaho-mqtt-dev
 
       - name: Start Mosquitto broker
         run: |
