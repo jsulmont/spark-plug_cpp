@@ -233,6 +233,40 @@ Tests verify:
 - Sequence validation
 - Automatic timestamp generation
 
+## Generating Documentation
+
+The API is fully documented with Doxygen comments. To generate HTML documentation:
+
+```bash
+# Install doxygen (if not already installed)
+# macOS:
+brew install doxygen graphviz
+# Linux:
+sudo apt install doxygen graphviz
+
+# Generate documentation
+doxygen Doxyfile
+
+# View documentation
+open docs/html/index.html  # macOS
+# or
+xdg-open docs/html/index.html  # Linux
+```
+
+The generated documentation includes:
+- Complete API reference for both C++ and C APIs
+- Class diagrams and dependency graphs
+- Code examples from headers
+- Cross-referenced source code
+
+All public APIs are documented with:
+- Detailed parameter descriptions
+- Return value specifications
+- Usage examples
+- Notes, warnings, and see-also references
+
+**Tip:** Modern IDEs (VSCode, CLion, etc.) display Doxygen documentation as hover tooltips automatically.
+
 ## API Documentation
 
 ### Publisher

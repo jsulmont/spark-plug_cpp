@@ -1,6 +1,8 @@
+.claude/
 CLAUDE.md
 build/
 build-*/
+docs/
 .cache/
 compile_commands.json
 *.o

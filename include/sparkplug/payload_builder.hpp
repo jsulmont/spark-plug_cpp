@@ -102,11 +102,61 @@ void add_metric_to_payload(org::eclipse::tahu::protobuf::Payload &payload,
 
 } // namespace detail
 
+/**
+ * @brief Type-safe builder for Sparkplug B payloads with automatic type detection.
+ *
+ * PayloadBuilder provides a fluent API for constructing Sparkplug B payloads
+ * with compile-time type safety. It automatically:
+ * - Maps C++ types to Sparkplug DataTypes
+ * - Generates timestamps (milliseconds since Unix epoch)
+ * - Manages sequence numbers (when used with Publisher)
+ *
+ * @par Supported Types
+ * - Integers: int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t, uint32_t, uint64_t
+ * - Floating-point: float, double
+ * - Boolean: bool
+ * - String: std::string, std::string_view, const char*
+ *
+ * @par Usage Patterns
+ *
+ * **NBIRTH messages:**
+ * Use add_metric_with_alias() to establish metric names with their aliases.
+ * @code
+ * sparkplug::PayloadBuilder birth;
+ * birth.add_metric_with_alias("Temperature", 1, 20.5);
+ * birth.add_metric_with_alias("Pressure", 2, 101.3);
+ * publisher.publish_birth(birth);
+ * @endcode
+ *
+ * **NDATA messages:**
+ * Use add_metric_by_alias() for bandwidth-efficient updates (Report by Exception).
+ * @code
+ * sparkplug::PayloadBuilder data;
+ * data.add_metric_by_alias(1, 21.0);  // Only Temperature changed
+ * publisher.publish_data(data);
+ * @endcode
+ *
+ * @see Publisher::publish_birth()
+ * @see Publisher::publish_data()
+ */
 class PayloadBuilder {
 public:
+  /**
+   * @brief Constructs an empty payload.
+   */
   PayloadBuilder();
 
-  // Add metric by name (for BIRTH messages)
+  /**
+   * @brief Adds a metric by name only (for NBIRTH without aliases).
+   *
+   * @tparam T Value type (automatically deduced)
+   * @param name Metric name
+   * @param value Metric value
+   *
+   * @return Reference to this builder for method chaining
+   *
+   * @note Timestamp is automatically generated.
+   */
   template <typename T>
   PayloadBuilder &add_metric(std::string_view name, T &&value) {
     detail::add_metric_to_payload(payload_, name, std::forward<T>(value),
@@ -114,7 +164,18 @@ public:
     return *this;
   }
 
-  // Add metric by name with custom timestamp
+  /**
+   * @brief Adds a metric by name with a custom timestamp.
+   *
+   * @tparam T Value type (automatically deduced)
+   * @param name Metric name
+   * @param value Metric value
+   * @param timestamp_ms Custom timestamp in milliseconds since Unix epoch
+   *
+   * @return Reference to this builder for method chaining
+   *
+   * @note Useful for historical data or backdated metrics.
+   */
   template <typename T>
   PayloadBuilder &add_metric(std::string_view name, T &&value,
                              uint64_t timestamp_ms) {
@@ -123,7 +184,18 @@ public:
     return *this;
   }
 
-  // Add metric by name with alias (for BIRTH messages)
+  /**
+   * @brief Adds a metric with both name and alias (for NBIRTH messages).
+   *
+   * @tparam T Value type (automatically deduced)
+   * @param name Metric name
+   * @param alias Metric alias (numeric identifier for NDATA)
+   * @param value Metric value
+   *
+   * @return Reference to this builder for method chaining
+   *
+   * @note This establishes the name-to-alias mapping for subsequent NDATA messages.
+   */
   template <typename T>
   PayloadBuilder &add_metric_with_alias(std::string_view name, uint64_t alias,
                                         T &&value) {
@@ -132,7 +204,18 @@ public:
     return *this;
   }
 
-  // Add metric by alias only (for DATA messages after BIRTH)
+  /**
+   * @brief Adds a metric by alias only (for NDATA messages).
+   *
+   * @tparam T Value type (automatically deduced)
+   * @param alias Metric alias (must be established in NBIRTH)
+   * @param value Metric value
+   *
+   * @return Reference to this builder for method chaining
+   *
+   * @note Only include metrics that have changed (Report by Exception).
+   * @note Reduces bandwidth by 60-80% vs. using full metric names.
+   */
   template <typename T>
   PayloadBuilder &add_metric_by_alias(uint64_t alias, T &&value) {
     detail::add_metric_to_payload(payload_, "", std::forward<T>(value), alias,
@@ -140,7 +223,18 @@ public:
     return *this;
   }
 
-  // Add metric by alias with custom timestamp (for historical data)
+  /**
+   * @brief Adds a metric by alias with a custom timestamp.
+   *
+   * @tparam T Value type (automatically deduced)
+   * @param alias Metric alias
+   * @param value Metric value
+   * @param timestamp_ms Custom timestamp in milliseconds since Unix epoch
+   *
+   * @return Reference to this builder for method chaining
+   *
+   * @note Useful for historical data with specific timestamps.
+   */
   template <typename T>
   PayloadBuilder &add_metric_by_alias(uint64_t alias, T &&value,
                                       uint64_t timestamp_ms) {
@@ -149,14 +243,30 @@ public:
     return *this;
   }
 
-  // Set payload timestamp (when message was created)
+  /**
+   * @brief Sets the payload-level timestamp.
+   *
+   * @param ts Timestamp in milliseconds since Unix epoch
+   *
+   * @return Reference to this builder for method chaining
+   *
+   * @note Usually not needed; Publisher adds this automatically.
+   */
   PayloadBuilder &set_timestamp(uint64_t ts) {
     payload_.set_timestamp(ts);
     timestamp_explicitly_set_ = true;
     return *this;
   }
 
-  // Set sequence number (0-255)
+  /**
+   * @brief Sets the sequence number manually.
+   *
+   * @param seq Sequence number (0-255)
+   *
+   * @return Reference to this builder for method chaining
+   *
+   * @warning Do not use in normal operation; Publisher manages this automatically.
+   */
   PayloadBuilder &set_seq(uint64_t seq) {
     payload_.set_seq(seq);
     seq_explicitly_set_ = true;

@@ -12,19 +12,75 @@
 
 namespace sparkplug {
 
+/**
+ * @brief Sparkplug B edge node publisher implementing the complete message lifecycle.
+ *
+ * The Publisher class manages the full Sparkplug B protocol for an edge node:
+ * - NBIRTH: Initial birth certificate with all metrics and aliases
+ * - NDATA: Subsequent data updates using aliases for bandwidth efficiency
+ * - NDEATH: Death certificate (sent via MQTT Last Will Testament)
+ * - Automatic sequence number management (0-255, wraps at 256)
+ * - Birth/Death sequence (bdSeq) tracking for session management
+ *
+ * @par Thread Safety
+ * This class is NOT thread-safe. All methods must be called from the same thread.
+ *
+ * @par Example Usage
+ * @code
+ * sparkplug::Publisher::Config config{
+ *   .broker_url = "tcp://localhost:1883",
+ *   .client_id = "my_edge_node",
+ *   .group_id = "Energy",
+ *   .edge_node_id = "Gateway01"
+ * };
+ *
+ * sparkplug::Publisher publisher(std::move(config));
+ * publisher.connect();
+ *
+ * // Publish NBIRTH (required first message)
+ * sparkplug::PayloadBuilder birth;
+ * birth.add_metric_with_alias("Temperature", 1, 20.5);
+ * publisher.publish_birth(birth);
+ *
+ * // Publish NDATA updates
+ * sparkplug::PayloadBuilder data;
+ * data.add_metric_by_alias(1, 21.0);  // Temperature changed
+ * publisher.publish_data(data);
+ *
+ * publisher.disconnect();  // Sends NDEATH automatically
+ * @endcode
+ *
+ * @see PayloadBuilder for constructing metric payloads
+ * @see Subscriber for consuming Sparkplug B messages
+ */
 class Publisher {
 public:
+  /**
+   * @brief Configuration parameters for the Sparkplug B publisher.
+   */
   struct Config {
-    std::string broker_url;
-    std::string client_id;
-    std::string group_id;
-    std::string edge_node_id;
-    int qos = 1;
-    bool clean_session = true;
-    int keep_alive_interval = 60; // Sparkplug recommends 60 seconds
+    std::string broker_url;        ///< MQTT broker URL (e.g., "tcp://localhost:1883")
+    std::string client_id;         ///< Unique MQTT client identifier
+    std::string group_id;          ///< Sparkplug group ID (topic namespace)
+    std::string edge_node_id;      ///< Edge node identifier within the group
+    int qos = 1;                   ///< MQTT QoS level (0, 1, or 2). Sparkplug recommends 1.
+    bool clean_session = true;     ///< MQTT clean session flag
+    int keep_alive_interval = 60;  ///< MQTT keep-alive interval in seconds (Sparkplug recommends 60)
   };
 
+  /**
+   * @brief Constructs a Publisher with the given configuration.
+   *
+   * @param config Publisher configuration (moved)
+   *
+   * @note The NDEATH payload is prepared during construction and will be
+   *       sent automatically when the MQTT connection is lost.
+   */
   Publisher(Config config);
+
+  /**
+   * @brief Destroys the Publisher and cleans up MQTT resources.
+   */
   ~Publisher();
 
   Publisher(const Publisher &) = delete;
@@ -32,25 +88,120 @@ public:
   Publisher(Publisher &&) noexcept;
   Publisher &operator=(Publisher &&) noexcept;
 
+  /**
+   * @brief Connects to the MQTT broker and establishes a Sparkplug B session.
+   *
+   * Sets the NDEATH message as the MQTT Last Will Testament before connecting.
+   * The NDEATH will be sent automatically if the connection is lost unexpectedly.
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Must be called before publish_birth().
+   * @warning The Publisher must remain in scope while connected, or NDEATH
+   *          may not be delivered properly.
+   */
   [[nodiscard]] std::expected<void, std::string> connect();
+
+  /**
+   * @brief Gracefully disconnects from the MQTT broker.
+   *
+   * Sends NDEATH via MQTT Last Will Testament and closes the connection.
+   *
+   * @return void on success, error message on failure
+   *
+   * @note After disconnect, you can call connect() again to reconnect.
+   */
   [[nodiscard]] std::expected<void, std::string> disconnect();
 
-  // NBIRTH - must be called first after connect
+  /**
+   * @brief Publishes an NBIRTH (Node Birth) message.
+   *
+   * The NBIRTH message must be the first message published after connect().
+   * It establishes the session and declares all available metrics with their aliases.
+   *
+   * @param payload PayloadBuilder containing metrics with names and aliases
+   *
+   * @return void on success, error message on failure
+   *
+   * @note The payload should include:
+   *       - All metrics with both name and alias (for NDATA to use aliases)
+   *       - bdSeq metric (automatically managed if using rebirth())
+   *       - Any metadata or properties
+   *
+   * @warning Must be called after connect() and before any publish_data() calls.
+   *
+   * @see publish_data() for subsequent updates
+   * @see rebirth() for publishing a new NBIRTH during runtime
+   */
   [[nodiscard]] std::expected<void, std::string>
   publish_birth(PayloadBuilder &payload);
 
-  // NDATA - publishes data, auto-manages sequence numbers
+  /**
+   * @brief Publishes an NDATA (Node Data) message.
+   *
+   * NDATA messages report metric changes by exception. Only include metrics
+   * that have changed since the last NDATA message. Uses aliases for bandwidth
+   * efficiency (60-80% reduction vs. full names).
+   *
+   * @param payload PayloadBuilder containing changed metrics (by alias only)
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Sequence number is automatically incremented (0-255, wraps at 256).
+   * @note Timestamp is automatically added if not explicitly set.
+   *
+   * @warning Must call publish_birth() before the first publish_data().
+   *
+   * @see publish_birth() for establishing aliases
+   */
   [[nodiscard]] std::expected<void, std::string>
   publish_data(PayloadBuilder &payload);
 
-  // NDEATH - graceful disconnect (usually automatic via LWT)
+  /**
+   * @brief Publishes an NDEATH (Node Death) message.
+   *
+   * Explicitly sends the NDEATH message. Usually not needed as NDEATH is
+   * sent automatically via MQTT Last Will Testament on disconnect or connection loss.
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Prefer using disconnect() which handles NDEATH automatically.
+   */
   [[nodiscard]] std::expected<void, std::string> publish_death();
 
-  // Rebirth - triggers new NBIRTH with incremented bdSeq
+  /**
+   * @brief Triggers a rebirth by publishing a new NBIRTH with incremented bdSeq.
+   *
+   * Rebirth is used when:
+   * - SCADA/Primary Application requests it via NCMD/Rebirth
+   * - New metrics need to be added to the metric inventory
+   * - Edge node configuration changes
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Automatically increments bdSeq and resets sequence number to 0.
+   * @note Republishes the last NBIRTH payload with updated bdSeq.
+   *
+   * @warning The new NBIRTH should contain ALL metrics (old + new), not just additions.
+   */
   [[nodiscard]] std::expected<void, std::string> rebirth();
 
-  // Get current sequence and bdSeq for monitoring
+  /**
+   * @brief Gets the current message sequence number.
+   *
+   * @return Current sequence number (0-255, wraps at 256)
+   *
+   * @note Useful for monitoring and debugging.
+   */
   [[nodiscard]] uint64_t get_seq() const { return seq_num_; }
+
+  /**
+   * @brief Gets the current birth/death sequence number.
+   *
+   * @return Current bdSeq value (increments on each rebirth, never wraps)
+   *
+   * @note Used by SCADA to detect new sessions/rebirths.
+   */
   [[nodiscard]] uint64_t get_bd_seq() const { return bd_seq_num_; }
 
 private:
