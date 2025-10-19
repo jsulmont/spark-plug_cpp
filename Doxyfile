@@ -8,6 +8,7 @@ DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "Sparkplug B C++ Library"
 PROJECT_NUMBER         = 1.0.0
 PROJECT_BRIEF          = "Modern C++23 implementation of Eclipse Sparkplug B 2.2 specification"
+PROJECT_LOGO           =
 OUTPUT_DIRECTORY       = docs
 CREATE_SUBDIRS         = NO
 ALLOW_UNICODE_NAMES    = NO
