@@ -32,15 +32,33 @@ Learn more: [Eclipse Sparkplug Specification](https://www.eclipse.org/tahu/spec/
 - Protocol Buffers (protobuf)
 - Abseil C++ library
 
-### Installation (macOS with Homebrew)
+### Installation
+
+**macOS (Homebrew):**
 
 ```bash
 # Install dependencies
 brew install cmake llvm protobuf abseil mosquitto paho.mqtt.c
 
 # Clone and build
-git clone https://github.com/yourusername/sparkplug_b.git
-cd sparkplug_b
+git clone <repository-url>
+cd sparkplug_cpp
+cmake --preset default
+cmake --build build
+```
+
+**Linux (Ubuntu/Debian):**
+
+```bash
+# Install dependencies
+sudo apt update
+sudo apt install -y cmake clang-16 libc++-16-dev libc++abi-16-dev \
+    protobuf-compiler libprotobuf-dev libabsl-dev \
+    mosquitto libpaho-mqtt-dev
+
+# Clone and build
+git clone <repository-url>
+cd sparkplug_cpp
 cmake --preset default
 cmake --build build
 ```
@@ -165,9 +183,17 @@ make -j$(nproc)
 
 The `examples/` directory contains:
 
+**C++ Examples:**
+
 - **publisher_example.cpp** - Complete publisher with birth/data/rebirth
+- **publisher_dynamic_metrics.cpp** - Adding new metrics at runtime via rebirth
 - **subscriber_example.cpp** - Simple subscriber
 - **subscriber_example_debug.cpp** - Detailed message inspection
+
+**C API Examples:**
+
+- **publisher_example_c.c** - Publisher using C bindings
+- **subscriber_example_c.c** - Subscriber using C bindings
 
 Build and run:
 
@@ -177,6 +203,9 @@ Build and run:
 
 # Terminal 2: Start publisher
 ./build/examples/publisher_example
+
+# Or try the dynamic metrics example
+./build/examples/publisher_dynamic_metrics
 ```
 
 ## Testing
@@ -185,7 +214,10 @@ Run the compliance test suite:
 
 ```bash
 # Make sure mosquitto is running
+# macOS:
 brew services start mosquitto
+# Linux:
+sudo systemctl start mosquitto
 
 # Run tests
 ctest --test-dir build --output-on-failure
@@ -366,10 +398,6 @@ Examples:
 
 ## Troubleshooting
 
-### Issue: Garbled output when viewing MQTT messages
-
-**This is normal!** Sparkplug B payloads are binary Protocol Buffers, not plain text. Use the `subscriber_example_debug` to decode messages.
-
 ### Issue: Sequence validation warnings
 
 Ensure you:
@@ -380,7 +408,10 @@ Ensure you:
 
 ### Issue: Connection failures
 
-- Verify MQTT broker is running: `mosquitto -v`
+- Verify MQTT broker is running:
+  - macOS: `brew services start mosquitto`
+  - Linux: `sudo systemctl start mosquitto`
+  - Or run directly: `mosquitto -v`
 - Check broker URL and port (default: 1883)
 - Ensure client_id is unique
 
@@ -406,4 +437,4 @@ Ensure you:
 
 ---
 
-**Questions?** Open an issue or check the [documentation](docs/API.md).
+**Questions?** See the API documentation in the header files or open an issue.

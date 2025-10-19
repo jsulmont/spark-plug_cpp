@@ -102,7 +102,7 @@ int main() {
   }
 
   if (!running) {
-    publisher.disconnect();
+    (void)publisher.disconnect();
     return 0;
   }
 

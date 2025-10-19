@@ -16,6 +16,7 @@ void signal_handler(int signum) {
 void on_message(const char *topic, const uint8_t *payload_data,
                 size_t payload_len, void *user_data) {
     (void)user_data;
+    (void)payload_data;
 
     printf("\n=== Message Received ===\n");
     printf("Topic: %s\n", topic);
