@@ -38,7 +38,7 @@ Learn more: [Eclipse Sparkplug Specification](https://www.eclipse.org/tahu/spec/
 
 ```bash
 # Install dependencies
-brew install cmake llvm protobuf abseil mosquitto paho.mqtt.c
+brew install cmake llvm protobuf abseil mosquitto libpaho-mqtt
 
 # Clone and build
 git clone <repository-url>
@@ -473,11 +473,9 @@ dual licensed as above, without any additional terms or conditions.
 
 ## Roadmap
 
-- Python bindings
-- Sparkplug Templates support
-- DataSet types
-- Historical data buffering
 - mTLS support
+- Sparkplug Templates support
+- Historical data buffering
 - Metrics dashboard example
 
 ---
