@@ -6,13 +6,13 @@ set -e
 # Detect clang-format binary
 if command -v /opt/homebrew/bin/clang-format &> /dev/null; then
     CLANG_FORMAT=/opt/homebrew/bin/clang-format
-elif command -v clang-format-16 &> /dev/null; then
-    CLANG_FORMAT=clang-format-16
+elif command -v clang-format-18 &> /dev/null; then
+    CLANG_FORMAT=clang-format-18
 elif command -v clang-format &> /dev/null; then
     CLANG_FORMAT=clang-format
 else
     echo "Error: clang-format not found!"
-    echo "Install it with: brew install clang-format (macOS) or apt install clang-format-16 (Linux)"
+    echo "Install it with: brew install clang-format (macOS) or apt install clang-format-18 (Linux)"
     exit 1
 fi
 

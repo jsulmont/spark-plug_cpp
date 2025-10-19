@@ -18,7 +18,7 @@ jobs:
       - name: Install clang-format
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format-16
+          sudo apt-get install -y clang-format-18
 
       - name: Check C++ formatting
         run: |
@@ -34,7 +34,7 @@ jobs:
           echo ""
 
           # Run clang-format and check if any files would be modified
-          echo "$FILES" | xargs clang-format-16 --dry-run --Werror
+          echo "$FILES" | xargs clang-format-18 --dry-run --Werror
 
           if [ $? -ne 0 ]; then
             echo ""
