@@ -6,6 +6,9 @@ add_library(sparkplug_cpp
     topic.cpp
 )
 
+# Enable PIC for linking into shared libraries
+set_target_properties(sparkplug_cpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 target_include_directories(sparkplug_cpp
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
