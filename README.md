@@ -233,6 +233,20 @@ Tests verify:
 - Sequence validation
 - Automatic timestamp generation
 
+## Code Formatting
+
+This project uses **clang-format** for consistent code style. All code is automatically checked in CI.
+
+```bash
+# Format all files
+./scripts/format.sh
+
+# Check formatting (CI mode)
+./scripts/format.sh --check
+```
+
+VSCode is configured to format on save automatically. Run the format script before committing changes.
+
 ## Generating Documentation
 
 The API is fully documented with Doxygen comments. To generate HTML documentation:
@@ -254,12 +268,14 @@ xdg-open docs/html/index.html  # Linux
 ```
 
 The generated documentation includes:
+
 - Complete API reference for both C++ and C APIs
 - Class diagrams and dependency graphs
 - Code examples from headers
 - Cross-referenced source code
 
 All public APIs are documented with:
+
 - Detailed parameter descriptions
 - Return value specifications
 - Usage examples
