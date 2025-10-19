@@ -15,9 +15,14 @@ constexpr int POLL_INTERVAL_MS = 100;
 constexpr uint64_t SEQ_NUMBER_MAX = 256;
 } // namespace
 
-void MQTTAsyncDeleter::operator()(MQTTAsync *client) const noexcept {
-  if (client && *client) {
-    MQTTAsync_destroy(client);
+MQTTAsyncHandle::~MQTTAsyncHandle() noexcept {
+  reset();
+}
+
+void MQTTAsyncHandle::reset() noexcept {
+  if (client_) {
+    MQTTAsync_destroy(&client_);
+    client_ = nullptr;
   }
 }
 
@@ -61,7 +66,7 @@ std::expected<void, std::string> Publisher::connect() {
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to create client: {}", rc));
   }
-  client_ = MQTTAsyncHandle(&raw_client, MQTTAsyncDeleter{});
+  client_ = MQTTAsyncHandle(raw_client);
 
   // Prepare NDEATH payload BEFORE connecting
   PayloadBuilder death_payload;
@@ -94,14 +99,14 @@ std::expected<void, std::string> Publisher::connect() {
   conn_opts.will = &will;
 
   // Connect to broker
-  rc = MQTTAsync_connect(*client_, &conn_opts);
+  rc = MQTTAsync_connect(client_.get(), &conn_opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to connect: {}", rc));
   }
 
   // Wait for connection with timeout
   int elapsed_ms = 0;
-  while (MQTTAsync_isConnected(*client_) == 0) {
+  while (MQTTAsync_isConnected(client_.get()) == 0) {
     std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
     elapsed_ms += POLL_INTERVAL_MS;
     if (elapsed_ms >= CONNECTION_TIMEOUT_MS) {
@@ -120,14 +125,14 @@ std::expected<void, std::string> Publisher::disconnect() {
 
   MQTTAsync_disconnectOptions opts = MQTTAsync_disconnectOptions_initializer;
 
-  int rc = MQTTAsync_disconnect(*client_, &opts);
+  int rc = MQTTAsync_disconnect(client_.get(), &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to disconnect: {}", rc));
   }
 
   // Wait for disconnect
   int elapsed_ms = 0;
-  while (MQTTAsync_isConnected(*client_) != 0) {
+  while (MQTTAsync_isConnected(client_.get()) != 0) {
     std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
     elapsed_ms += POLL_INTERVAL_MS;
     if (elapsed_ms >= DISCONNECT_TIMEOUT_MS) {
@@ -157,7 +162,7 @@ Publisher::publish_message(const Topic &topic,
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
-  int rc = MQTTAsync_sendMessage(*client_, topic_str.c_str(), &msg, &opts);
+  int rc = MQTTAsync_sendMessage(client_.get(), topic_str.c_str(), &msg, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to publish: {}", rc));
   }

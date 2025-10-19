@@ -247,9 +247,9 @@ std::expected<void, std::string> Subscriber::connect() {
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to create client: {}", rc));
   }
-  client_ = MQTTAsyncHandle(&raw_client, MQTTAsyncDeleter{});
+  client_ = MQTTAsyncHandle(raw_client);
 
-  rc = MQTTAsync_setCallbacks(*client_, this, on_connection_lost,
+  rc = MQTTAsync_setCallbacks(client_.get(), this, on_connection_lost,
                               on_message_arrived, nullptr);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to set callbacks: {}", rc));
@@ -259,14 +259,14 @@ std::expected<void, std::string> Subscriber::connect() {
   conn_opts.keepAliveInterval = DEFAULT_KEEP_ALIVE_INTERVAL;
   conn_opts.cleansession = config_.clean_session;
 
-  rc = MQTTAsync_connect(*client_, &conn_opts);
+  rc = MQTTAsync_connect(client_.get(), &conn_opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to connect: {}", rc));
   }
 
   // Wait for connection
   int elapsed_ms = 0;
-  while (MQTTAsync_isConnected(*client_) == 0) {
+  while (MQTTAsync_isConnected(client_.get()) == 0) {
     std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
     elapsed_ms += POLL_INTERVAL_MS;
     if (elapsed_ms >= CONNECTION_TIMEOUT_MS) {
@@ -285,7 +285,7 @@ std::expected<void, std::string> Subscriber::disconnect() {
   MQTTAsync_disconnectOptions opts = MQTTAsync_disconnectOptions_initializer;
   opts.timeout = DISCONNECT_TIMEOUT_MS;
 
-  int rc = MQTTAsync_disconnect(*client_, &opts);
+  int rc = MQTTAsync_disconnect(client_.get(), &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to disconnect: {}", rc));
   }
@@ -302,7 +302,7 @@ std::expected<void, std::string> Subscriber::subscribe_all() {
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
-  int rc = MQTTAsync_subscribe(*client_, topic.c_str(), config_.qos, &opts);
+  int rc = MQTTAsync_subscribe(client_.get(), topic.c_str(), config_.qos, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to subscribe: {}", rc));
   }
@@ -321,7 +321,7 @@ Subscriber::subscribe_node(std::string_view edge_node_id) {
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
-  int rc = MQTTAsync_subscribe(*client_, topic.c_str(), config_.qos, &opts);
+  int rc = MQTTAsync_subscribe(client_.get(), topic.c_str(), config_.qos, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to subscribe: {}", rc));
   }
@@ -339,7 +339,7 @@ Subscriber::subscribe_state(std::string_view host_id) {
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
-  int rc = MQTTAsync_subscribe(*client_, topic.c_str(), config_.qos, &opts);
+  int rc = MQTTAsync_subscribe(client_.get(), topic.c_str(), config_.qos, &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to subscribe: {}", rc));
   }
