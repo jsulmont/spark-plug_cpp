@@ -1,4 +1,4 @@
-// src/publisher.cpp
+// src/publisher.cpp - FIXED for binary NDEATH
 #include "sparkplug/publisher.hpp"
 #include <MQTTAsync.h>
 #include <cstring>
@@ -12,9 +12,8 @@ Publisher::Publisher(Config config)
 
 Publisher::~Publisher() {
   if (client_) {
-    // Try graceful disconnect if still connected
     if (is_connected_) {
-      (void)disconnect(); // Ignore result in destructor
+      (void)disconnect();
     }
     MQTTAsync_destroy(&client_);
   }
@@ -49,7 +48,6 @@ Publisher &Publisher::operator=(Publisher &&other) noexcept {
 }
 
 std::expected<void, std::string> Publisher::connect() {
-  // Create MQTT client
   int rc = MQTTAsync_create(&client_, config_.broker_url.c_str(),
                             config_.client_id.c_str(),
                             MQTTCLIENT_PERSISTENCE_NONE, nullptr);
@@ -58,7 +56,6 @@ std::expected<void, std::string> Publisher::connect() {
   }
 
   // Prepare NDEATH payload BEFORE connecting
-  // CRITICAL: NDEATH must contain ONLY bdSeq metric with current bdSeq value
   PayloadBuilder death_payload;
   death_payload.add_metric("bdSeq", bd_seq_num_);
   death_payload_data_ = death_payload.build();
@@ -69,9 +66,8 @@ std::expected<void, std::string> Publisher::connect() {
   conn_opts.cleansession = config_.clean_session;
 
   // Setup Last Will and Testament (NDEATH)
-  // Note: For binary payloads, we cast to char* and rely on MQTT handling it as
-  // binary
   MQTTAsync_willOptions will = MQTTAsync_willOptions_initializer;
+
   Topic death_topic{.group_id = config_.group_id,
                     .message_type = MessageType::NDEATH,
                     .edge_node_id = config_.edge_node_id,
@@ -79,7 +75,11 @@ std::expected<void, std::string> Publisher::connect() {
 
   auto death_topic_str = death_topic.to_string();
   will.topicName = death_topic_str.c_str();
-  will.message = reinterpret_cast<char *>(death_payload_data_.data());
+
+  // CRITICAL FIX: Use payload.data and payload.len for binary data
+  // NOT will.message which expects null-terminated string!
+  will.payload.data = death_payload_data_.data();
+  will.payload.len = static_cast<int>(death_payload_data_.size());
   will.retained = 0;
   will.qos = config_.qos;
 
@@ -103,10 +103,6 @@ std::expected<void, std::string> Publisher::connect() {
   }
 
   is_connected_ = true;
-
-  // IMPORTANT: Sequence number should be 0 for NBIRTH
-  // Don't increment seq_num_ here - it will be set in publish_birth
-
   return {};
 }
 
@@ -129,7 +125,7 @@ std::expected<void, std::string> Publisher::disconnect() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     elapsed_ms += 100;
     if (elapsed_ms >= timeout_ms) {
-      break; // Force disconnect
+      break;
     }
   }
 
@@ -151,7 +147,7 @@ Publisher::publish_message(const Topic &topic,
       const_cast<void *>(reinterpret_cast<const void *>(payload_data.data()));
   msg.payloadlen = static_cast<int>(payload_data.size());
   msg.qos = config_.qos;
-  msg.retained = 0; // Sparkplug messages are NOT retained (except STATE)
+  msg.retained = 0;
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
@@ -169,11 +165,8 @@ Publisher::publish_birth(PayloadBuilder &payload) {
     return std::unexpected("Not connected");
   }
 
-  // CRITICAL: NBIRTH MUST have sequence number 0
   payload.set_seq(0);
 
-  // CRITICAL: Ensure bdSeq metric is present with CURRENT bdSeq
-  // This allows correlation between NBIRTH and NDEATH
   bool has_bdseq = false;
   auto &proto_payload = payload.mutable_payload();
 
@@ -185,7 +178,6 @@ Publisher::publish_birth(PayloadBuilder &payload) {
   }
 
   if (!has_bdseq) {
-    // Add bdSeq if not present
     auto *metric = proto_payload.add_metrics();
     metric->set_name("bdSeq");
     metric->set_datatype(static_cast<uint32_t>(DataType::UInt64));
@@ -198,8 +190,6 @@ Publisher::publish_birth(PayloadBuilder &payload) {
               .device_id = ""};
 
   auto payload_data = payload.build();
-
-  // Store for potential rebirth command
   last_birth_payload_ = payload_data;
 
   auto result = publish_message(topic, payload_data);
@@ -207,11 +197,7 @@ Publisher::publish_birth(PayloadBuilder &payload) {
     return result;
   }
 
-  // Reset sequence to 0 after NBIRTH
   seq_num_ = 0;
-
-  // Increment bdSeq AFTER successful NBIRTH
-  // Next NDEATH will have this new bdSeq value
   bd_seq_num_++;
 
   return {};
@@ -223,10 +209,8 @@ Publisher::publish_data(PayloadBuilder &payload) {
     return std::unexpected("Not connected");
   }
 
-  // Auto-increment sequence number (wraps at 256)
   seq_num_ = (seq_num_ + 1) % 256;
 
-  // Set sequence number if not already set
   if (!payload.has_seq()) {
     payload.set_seq(seq_num_);
   }
@@ -241,8 +225,6 @@ Publisher::publish_data(PayloadBuilder &payload) {
 }
 
 std::expected<void, std::string> Publisher::publish_death() {
-  // Graceful NDEATH is typically handled by MQTT Will
-  // But we can explicitly publish if needed
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -252,7 +234,6 @@ std::expected<void, std::string> Publisher::publish_death() {
               .edge_node_id = config_.edge_node_id,
               .device_id = ""};
 
-  // Use stored death payload
   auto result = publish_message(topic, death_payload_data_);
   if (!result) {
     return result;
@@ -270,10 +251,8 @@ std::expected<void, std::string> Publisher::rebirth() {
     return std::unexpected("No previous birth payload stored");
   }
 
-  // Increment bdSeq for rebirth
   bd_seq_num_++;
 
-  // Parse the stored birth payload and update bdSeq
   org::eclipse::tahu::protobuf::Payload proto_payload;
   if (!proto_payload.ParseFromArray(
           last_birth_payload_.data(),
@@ -281,7 +260,6 @@ std::expected<void, std::string> Publisher::rebirth() {
     return std::unexpected("Failed to parse stored birth payload");
   }
 
-  // Update bdSeq metric
   for (auto &metric : *proto_payload.mutable_metrics()) {
     if (metric.name() == "bdSeq") {
       metric.set_long_value(bd_seq_num_);
@@ -289,7 +267,6 @@ std::expected<void, std::string> Publisher::rebirth() {
     }
   }
 
-  // Reset sequence to 0 for NBIRTH
   proto_payload.set_seq(0);
 
   Topic topic{.group_id = config_.group_id,
@@ -297,7 +274,6 @@ std::expected<void, std::string> Publisher::rebirth() {
               .edge_node_id = config_.edge_node_id,
               .device_id = ""};
 
-  // Serialize updated payload
   std::vector<uint8_t> payload_data(proto_payload.ByteSizeLong());
   proto_payload.SerializeToArray(payload_data.data(),
                                  static_cast<int>(payload_data.size()));
@@ -307,10 +283,7 @@ std::expected<void, std::string> Publisher::rebirth() {
     return result;
   }
 
-  // Update stored birth payload
   last_birth_payload_ = payload_data;
-
-  // Reset sequence
   seq_num_ = 0;
 
   return {};

@@ -4,3 +4,6 @@ target_link_libraries(publisher_example PRIVATE sparkplug_cpp)
 
 add_executable(subscriber_example subscriber_example.cpp)
 target_link_libraries(subscriber_example PRIVATE sparkplug_cpp)
+
+add_executable(subscriber_example_debug subscriber_example_debug.cpp)
+target_link_libraries(subscriber_example_debug PRIVATE sparkplug_cpp)
