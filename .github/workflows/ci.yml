@@ -49,7 +49,15 @@ jobs:
             libprotobuf-dev \
             protobuf-compiler
 
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: /usr/local
+          key: deps-abseil-20240722.0-paho-1.3.13-clang18-${{ runner.os }}
+
       - name: Build and install Abseil
+        if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch 20240722.0 https://github.com/abseil/abseil-cpp.git
           cd abseil-cpp
@@ -66,6 +74,7 @@ jobs:
           sudo cmake --install .
 
       - name: Build and install Eclipse Paho MQTT C
+        if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch v1.3.13 https://github.com/eclipse/paho.mqtt.c.git
           cd paho.mqtt.c
