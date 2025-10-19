@@ -4,16 +4,17 @@ A modern C++23 implementation of the Eclipse Sparkplug B 2.2 specification for I
 
 ## Features
 
-- ✅ **Full Sparkplug B 2.2 Compliance** - Implements the complete specification
-- 🚀 **Modern C++23** - Uses latest C++ features (std::expected, ranges, modules-ready)
-- 🔒 **Type Safe** - Leverages strong typing and compile-time checks
-- 📦 **Easy Integration** - Simple Publisher/Subscriber API
-- 🧪 **Tested** - Comprehensive compliance test suite included
-- 🌐 **Cross Platform** - Works on macOS, Linux, and Windows (planned)
+- **Full Sparkplug B 2.2 Compliance** - Implements the complete specification
+- **Modern C++23** - Uses latest C++ features (std::expected, ranges, modules-ready)
+- **Type Safe** - Leverages strong typing and compile-time checks
+- **Easy Integration** - Simple Publisher/Subscriber API
+- **Tested** - Comprehensive compliance test suite included
+- **Cross Platform** - Works on macOS and Linux
 
 ## What is Sparkplug B?
 
 Sparkplug B is an MQTT-based protocol specification for Industrial IoT that provides:
+
 - Standardized MQTT topic namespace and payload definition
 - Birth and Death certificates for edge nodes and devices
 - Report by Exception for efficient bandwidth usage
@@ -25,7 +26,7 @@ Learn more: [Eclipse Sparkplug Specification](https://www.eclipse.org/tahu/spec/
 
 ### Prerequisites
 
-- C++23 compatible compiler (Clang 16+, GCC 13+, or MSVC 19.35+)
+- C++23 compatible compiler (Clang 16+ or GCC 13+)
 - CMake 3.25+
 - Eclipse Paho MQTT C library
 - Protocol Buffers (protobuf)
@@ -169,6 +170,7 @@ The `examples/` directory contains:
 - **subscriber_example_debug.cpp** - Detailed message inspection
 
 Build and run:
+
 ```bash
 # Terminal 1: Start subscriber
 ./build/examples/subscriber_example_debug
@@ -190,13 +192,14 @@ ctest --test-dir build --output-on-failure
 ```
 
 Tests verify:
-- ✅ NBIRTH sequence number starts at 0
-- ✅ Sequence wraps at 256
-- ✅ bdSeq increments on rebirth
-- ✅ NBIRTH contains bdSeq metric
-- ✅ Alias usage in NDATA messages
-- ✅ Sequence validation
-- ✅ Automatic timestamp generation
+
+- NBIRTH sequence number starts at 0
+- Sequence wraps at 256
+- bdSeq increments on rebirth
+- NBIRTH contains bdSeq metric
+- Alias usage in NDATA messages
+- Sequence validation
+- Automatic timestamp generation
 
 ## API Documentation
 
@@ -286,44 +289,49 @@ sparkplug_publisher_destroy(pub);
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│  Application (Your Code)                    │
-└────────────────┬────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────┐
-│  Sparkplug B C++ Library                    │
-│  ┌──────────────┐  ┌──────────────┐         │
-│  │  Publisher   │  │  Subscriber  │         │
-│  └──────┬───────┘  └──────┬───────┘         │
-│         │                 │                  │
-│  ┌──────▼─────────────────▼───────┐         │
-│  │   PayloadBuilder / Topic       │         │
-│  └──────┬─────────────────────────┘         │
-│         │                                    │
-│  ┌──────▼─────────────────────────┐         │
-│  │   Protocol Buffers (Sparkplug) │         │
-│  └──────┬─────────────────────────┘         │
-└─────────┼──────────────────────────────────┘
-          │
-┌─────────▼──────────────────────────────────┐
-│  Eclipse Paho MQTT C                       │
-└────────────────┬───────────────────────────┘
-                 │
-┌────────────────▼───────────────────────────┐
-│  MQTT Broker (Mosquitto, HiveMQ, etc.)     │
-└────────────────────────────────────────────┘
+```text
++---------------------------------------------+
+|  Application (Your Code)                    |
++---------------------------------------------+
+                    |
+                    v
++---------------------------------------------+
+|  Sparkplug B C++ Library                    |
+|  +----------------+  +------------------+   |
+|  |  Publisher     |  |  Subscriber      |   |
+|  +----------------+  +------------------+   |
+|            |                 |               |
+|            v                 v               |
+|  +-------------------------------------+     |
+|  |   PayloadBuilder / Topic            |     |
+|  +-------------------------------------+     |
+|            |                                 |
+|            v                                 |
+|  +-------------------------------------+     |
+|  |   Protocol Buffers (Sparkplug)      |     |
+|  +-------------------------------------+     |
++---------------------------------------------+
+                    |
+                    v
++---------------------------------------------+
+|  Eclipse Paho MQTT C                        |
++---------------------------------------------+
+                    |
+                    v
++---------------------------------------------+
+|  MQTT Broker (Mosquitto, HiveMQ, etc.)      |
++---------------------------------------------+
 ```
 
 ## Sparkplug B Message Flow
 
-```
+```text
 Edge Node Lifecycle:
-1. CONNECT → MQTT Broker (with NDEATH in Last Will)
-2. NBIRTH → Establish session, publish all metrics with aliases
-3. NDATA → Report changes by exception using aliases
-4. NDATA → Continue publishing updates
-5. DISCONNECT → NDEATH sent automatically via MQTT Will
+1. CONNECT -> MQTT Broker (with NDEATH in Last Will)
+2. NBIRTH -> Establish session, publish all metrics with aliases
+3. NDATA -> Report changes by exception using aliases
+4. NDATA -> Continue publishing updates
+5. DISCONNECT -> NDEATH sent automatically via MQTT Will
 
 Rebirth Scenario:
 1. Primary Application sends NCMD/Rebirth
@@ -336,11 +344,12 @@ Rebirth Scenario:
 
 The library uses the Sparkplug B topic namespace:
 
-```
+```text
 spBv1.0/{group_id}/{message_type}/{edge_node_id}[/{device_id}]
 ```
 
 Examples:
+
 - `spBv1.0/Energy/NBIRTH/Gateway01` - Node birth
 - `spBv1.0/Energy/NDATA/Gateway01` - Node data
 - `spBv1.0/Energy/DBIRTH/Gateway01/Sensor01` - Device birth
@@ -364,6 +373,7 @@ Examples:
 ### Issue: Sequence validation warnings
 
 Ensure you:
+
 1. Publish NBIRTH before any NDATA
 2. Don't manually set sequence numbers
 3. Check for packet loss if gaps persist
@@ -373,14 +383,6 @@ Ensure you:
 - Verify MQTT broker is running: `mosquitto -v`
 - Check broker URL and port (default: 1883)
 - Ensure client_id is unique
-
-## Contributing
-
-Contributions welcome! Please:
-1. Follow C++23 coding standards
-2. Add tests for new features
-3. Update documentation
-4. Ensure compliance tests pass
 
 ## License
 
@@ -395,13 +397,12 @@ Contributions welcome! Please:
 
 ## Roadmap
 
-- [ ] Windows platform support
-- [ ] Python bindings
-- [ ] Sparkplug Templates support
-- [ ] DataSet types
-- [ ] Historical data buffering
-- [ ] mTLS support
-- [ ] Metrics dashboard example
+- Python bindings
+- Sparkplug Templates support
+- DataSet types
+- Historical data buffering
+- mTLS support
+- Metrics dashboard example
 
 ---
 
