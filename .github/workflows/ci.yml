@@ -49,13 +49,36 @@ jobs:
             libprotobuf-dev \
             protobuf-compiler
 
-      - name: Install Abseil
+      - name: Build and install Abseil
         run: |
-          sudo apt-get install -y libabsl-dev
+          git clone --depth 1 --branch 20240722.0 https://github.com/abseil/abseil-cpp.git
+          cd abseil-cpp
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_STANDARD=17 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DABSL_BUILD_TESTING=OFF \
+            -DABSL_USE_GOOGLETEST_HEAD=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          cmake --build . -j$(nproc)
+          sudo cmake --install .
 
-      - name: Install Eclipse Paho MQTT C
+      - name: Build and install Eclipse Paho MQTT C
         run: |
-          sudo apt-get install -y libpaho-mqtt-dev
+          git clone --depth 1 --branch v1.3.13 https://github.com/eclipse/paho.mqtt.c.git
+          cd paho.mqtt.c
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPAHO_WITH_SSL=OFF \
+            -DPAHO_BUILD_STATIC=OFF \
+            -DPAHO_BUILD_DOCUMENTATION=OFF \
+            -DPAHO_BUILD_SAMPLES=OFF
+          cmake --build . -j$(nproc)
+          sudo cmake --install .
 
       - name: Start Mosquitto broker
         run: |
