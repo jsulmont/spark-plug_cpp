@@ -1,9 +1,10 @@
 // tests/test_payload_builder.cpp
 // Unit tests for PayloadBuilder type safety and functionality
 #include <cassert>
-#include <iostream>
-#include <sparkplug/payload_builder.hpp>
 #include <cmath>
+#include <iostream>
+
+#include <sparkplug/payload_builder.hpp>
 
 void test_int_types() {
   sparkplug::PayloadBuilder payload;
@@ -141,12 +142,14 @@ void test_auto_timestamp() {
   sparkplug::PayloadBuilder payload;
 
   auto before = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::system_clock::now().time_since_epoch()).count();
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count();
 
   payload.add_metric("test", 42);
 
   auto after = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::system_clock::now().time_since_epoch()).count();
+                   std::chrono::system_clock::now().time_since_epoch())
+                   .count();
 
   auto pb = payload.payload();
   assert(pb.metrics_size() == 1);
@@ -211,11 +214,8 @@ void test_multiple_metrics() {
 void test_method_chaining() {
   sparkplug::PayloadBuilder payload;
 
-  payload.add_metric("m1", 1)
-         .add_metric("m2", 2)
-         .add_metric("m3", 3)
-         .set_timestamp(123456)
-         .set_seq(42);
+  payload.add_metric("m1", 1).add_metric("m2", 2).add_metric("m3", 3).set_timestamp(123456).set_seq(
+      42);
 
   auto pb = payload.payload();
   assert(pb.metrics_size() == 3);
@@ -241,9 +241,12 @@ void test_node_control_metrics() {
   bool has_scan_rate = false;
 
   for (int i = 0; i < pb.metrics_size(); i++) {
-    if (pb.metrics(i).name() == "Node Control/Rebirth") has_rebirth = true;
-    if (pb.metrics(i).name() == "Node Control/Next Server") has_next_server = true;
-    if (pb.metrics(i).name() == "Node Control/Scan Rate") has_scan_rate = true;
+    if (pb.metrics(i).name() == "Node Control/Rebirth")
+      has_rebirth = true;
+    if (pb.metrics(i).name() == "Node Control/Next Server")
+      has_next_server = true;
+    if (pb.metrics(i).name() == "Node Control/Scan Rate")
+      has_scan_rate = true;
   }
 
   assert(has_rebirth);

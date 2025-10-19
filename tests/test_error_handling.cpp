@@ -2,16 +2,16 @@
 // Tests for error conditions and failure handling
 #include <cassert>
 #include <iostream>
+
 #include <sparkplug/publisher.hpp>
 #include <sparkplug/subscriber.hpp>
 #include <sparkplug/topic.hpp>
 
 void test_invalid_broker_url() {
-  sparkplug::Publisher::Config config{
-      .broker_url = "invalid://bad_url:99999",
-      .client_id = "test_invalid",
-      .group_id = "Test",
-      .edge_node_id = "Node"};
+  sparkplug::Publisher::Config config{.broker_url = "invalid://bad_url:99999",
+                                      .client_id = "test_invalid",
+                                      .group_id = "Test",
+                                      .edge_node_id = "Node"};
 
   sparkplug::Publisher pub(std::move(config));
 
@@ -23,11 +23,10 @@ void test_invalid_broker_url() {
 }
 
 void test_publish_before_connect() {
-  sparkplug::Publisher::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "test_no_connect",
-      .group_id = "Test",
-      .edge_node_id = "Node"};
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_no_connect",
+                                      .group_id = "Test",
+                                      .edge_node_id = "Node"};
 
   sparkplug::Publisher pub(std::move(config));
 
@@ -42,11 +41,10 @@ void test_publish_before_connect() {
 }
 
 void test_publish_data_before_birth() {
-  sparkplug::Publisher::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "test_no_birth",
-      .group_id = "Test",
-      .edge_node_id = "Node"};
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_no_birth",
+                                      .group_id = "Test",
+                                      .edge_node_id = "Node"};
 
   sparkplug::Publisher pub(std::move(config));
 
@@ -69,11 +67,10 @@ void test_publish_data_before_birth() {
 }
 
 void test_double_connect() {
-  sparkplug::Publisher::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "test_double_conn",
-      .group_id = "Test",
-      .edge_node_id = "Node"};
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_double_conn",
+                                      .group_id = "Test",
+                                      .edge_node_id = "Node"};
 
   sparkplug::Publisher pub(std::move(config));
 
@@ -93,11 +90,10 @@ void test_double_connect() {
 }
 
 void test_disconnect_not_connected() {
-  sparkplug::Publisher::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "test_disc_no_conn",
-      .group_id = "Test",
-      .edge_node_id = "Node"};
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_disc_no_conn",
+                                      .group_id = "Test",
+                                      .edge_node_id = "Node"};
 
   sparkplug::Publisher pub(std::move(config));
 
@@ -125,11 +121,10 @@ void test_invalid_topic_parse() {
 }
 
 void test_move_semantics() {
-  sparkplug::Publisher::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "test_move",
-      .group_id = "Test",
-      .edge_node_id = "Node"};
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_move",
+                                      .group_id = "Test",
+                                      .edge_node_id = "Node"};
 
   sparkplug::Publisher pub1(std::move(config));
 
@@ -143,12 +138,10 @@ void test_move_semantics() {
 }
 
 void test_subscriber_invalid_broker() {
-  auto callback = [](const sparkplug::Topic &, const auto &) {};
+  auto callback = [](const sparkplug::Topic&, const auto&) {};
 
   sparkplug::Subscriber::Config config{
-      .broker_url = "invalid://bad:99999",
-      .client_id = "test_sub_invalid",
-      .group_id = "Test"};
+      .broker_url = "invalid://bad:99999", .client_id = "test_sub_invalid", .group_id = "Test"};
 
   sparkplug::Subscriber sub(std::move(config), callback);
 
@@ -159,12 +152,10 @@ void test_subscriber_invalid_broker() {
 }
 
 void test_subscriber_subscribe_before_connect() {
-  auto callback = [](const sparkplug::Topic &, const auto &) {};
+  auto callback = [](const sparkplug::Topic&, const auto&) {};
 
   sparkplug::Subscriber::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "test_sub_no_conn",
-      .group_id = "Test"};
+      .broker_url = "tcp://localhost:1883", .client_id = "test_sub_no_conn", .group_id = "Test"};
 
   sparkplug::Subscriber sub(std::move(config), callback);
 
@@ -178,10 +169,7 @@ void test_subscriber_subscribe_before_connect() {
 void test_empty_config_fields() {
   // Empty broker URL should fail
   sparkplug::Publisher::Config config1{
-      .broker_url = "",
-      .client_id = "test",
-      .group_id = "Test",
-      .edge_node_id = "Node"};
+      .broker_url = "", .client_id = "test", .group_id = "Test", .edge_node_id = "Node"};
 
   sparkplug::Publisher pub1(std::move(config1));
   auto result1 = pub1.connect();
@@ -193,11 +181,10 @@ void test_empty_config_fields() {
 }
 
 void test_sequence_overflow() {
-  sparkplug::Publisher::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "test_seq_overflow",
-      .group_id = "Test",
-      .edge_node_id = "Node"};
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_seq_overflow",
+                                      .group_id = "Test",
+                                      .edge_node_id = "Node"};
 
   sparkplug::Publisher pub(std::move(config));
 

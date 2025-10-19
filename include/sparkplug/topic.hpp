@@ -18,15 +18,15 @@ namespace sparkplug {
  * - STATE: Primary application state
  */
 enum class MessageType {
-  NBIRTH,  ///< Node Birth Certificate
-  NDEATH,  ///< Node Death Certificate
-  DBIRTH,  ///< Device Birth Certificate
-  DDEATH,  ///< Device Death Certificate
-  NDATA,   ///< Node Data
-  DDATA,   ///< Device Data
-  NCMD,    ///< Node Command
-  DCMD,    ///< Device Command
-  STATE    ///< Primary Application State (not part of spBv1.0 namespace)
+  NBIRTH, ///< Node Birth Certificate
+  NDEATH, ///< Node Death Certificate
+  DBIRTH, ///< Device Birth Certificate
+  DDEATH, ///< Device Death Certificate
+  NDATA,  ///< Node Data
+  DDATA,  ///< Device Data
+  NCMD,   ///< Node Command
+  DCMD,   ///< Device Command
+  STATE   ///< Primary Application State (not part of spBv1.0 namespace)
 };
 
 /**
@@ -42,10 +42,10 @@ enum class MessageType {
  * - `STATE/ScadaHost1` - Primary application state
  */
 struct Topic {
-  std::string group_id;        ///< Group ID (topic namespace)
-  MessageType message_type;    ///< Message type (NBIRTH, NDATA, etc.)
-  std::string edge_node_id;    ///< Edge node identifier
-  std::string device_id;       ///< Device identifier (empty for node-level messages)
+  std::string group_id;     ///< Group ID (topic namespace)
+  MessageType message_type; ///< Message type (NBIRTH, NDATA, etc.)
+  std::string edge_node_id; ///< Edge node identifier
+  std::string device_id;    ///< Device identifier (empty for node-level messages)
 
   /**
    * @brief Converts the topic back to a string.
@@ -70,8 +70,7 @@ struct Topic {
    * }
    * @endcode
    */
-  [[nodiscard]] static std::expected<Topic, std::string>
-  parse(std::string_view topic_str);
+  [[nodiscard]] static std::expected<Topic, std::string> parse(std::string_view topic_str);
 };
 
 } // namespace sparkplug

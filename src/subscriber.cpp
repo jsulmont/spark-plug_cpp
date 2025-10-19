@@ -1,10 +1,12 @@
 // src/subscriber.cpp
 #include "sparkplug/subscriber.hpp"
-#include <MQTTAsync.h>
+
 #include <format>
 #include <iostream>
 #include <thread>
 #include <utility>
+
+#include <MQTTAsync.h>
 
 namespace sparkplug {
 
@@ -19,18 +21,19 @@ constexpr int DEFAULT_KEEP_ALIVE_INTERVAL = 60;
 
 // Fix initialization order to match declaration
 Subscriber::Subscriber(Config config, MessageCallback callback)
-    : callback_(std::move(callback)), config_(std::move(config)) {}
+    : callback_(std::move(callback)), config_(std::move(config)) {
+}
 
 Subscriber::~Subscriber() {
   // unique_ptr will automatically call MQTTAsyncDeleter
 }
 
-Subscriber::Subscriber(Subscriber &&other) noexcept
+Subscriber::Subscriber(Subscriber&& other) noexcept
     : callback_(std::move(other.callback_)), config_(std::move(other.config_)),
-      client_(std::move(other.client_)),
-      node_states_(std::move(other.node_states_)) {}
+      client_(std::move(other.client_)), node_states_(std::move(other.node_states_)) {
+}
 
-Subscriber &Subscriber::operator=(Subscriber &&other) noexcept {
+Subscriber& Subscriber::operator=(Subscriber&& other) noexcept {
   if (this != &other) {
     callback_ = std::move(other.callback_);
     config_ = std::move(other.config_);
@@ -40,28 +43,28 @@ Subscriber &Subscriber::operator=(Subscriber &&other) noexcept {
   return *this;
 }
 
-bool Subscriber::validate_message(
-    const Topic &topic, const org::eclipse::tahu::protobuf::Payload &payload) {
+bool Subscriber::validate_message(const Topic& topic,
+                                  const org::eclipse::tahu::protobuf::Payload& payload) {
   if (!config_.validate_sequence) {
     return true;
   }
 
-  const std::string &node_id = topic.edge_node_id;
-  auto &state = node_states_[node_id];
+  const std::string& node_id = topic.edge_node_id;
+  auto& state = node_states_[node_id];
 
   switch (topic.message_type) {
   case MessageType::NBIRTH: {
     // NBIRTH must have seq = 0
     if (payload.has_seq() && payload.seq() != 0) {
-      std::cerr << "WARNING: NBIRTH for " << node_id
-                << " has invalid seq: " << payload.seq() << " (expected 0)\n";
+      std::cerr << "WARNING: NBIRTH for " << node_id << " has invalid seq: " << payload.seq()
+                << " (expected 0)\n";
       return false;
     }
 
     // Extract bdSeq from metrics
     uint64_t bd_seq = 0;
     bool has_bdseq = false;
-    for (const auto &metric : payload.metrics()) {
+    for (const auto& metric : payload.metrics()) {
       if (metric.name() == "bdSeq") {
         bd_seq = metric.long_value();
         has_bdseq = true;
@@ -70,8 +73,7 @@ bool Subscriber::validate_message(
     }
 
     if (!has_bdseq) {
-      std::cerr << "WARNING: NBIRTH for " << node_id
-                << " missing required bdSeq metric\n";
+      std::cerr << "WARNING: NBIRTH for " << node_id << " missing required bdSeq metric\n";
       return false;
     }
 
@@ -87,7 +89,7 @@ bool Subscriber::validate_message(
   case MessageType::NDEATH: {
     // Extract bdSeq from metrics
     uint64_t bd_seq = 0;
-    for (const auto &metric : payload.metrics()) {
+    for (const auto& metric : payload.metrics()) {
       if (metric.name() == "bdSeq") {
         bd_seq = metric.long_value();
         break;
@@ -96,9 +98,8 @@ bool Subscriber::validate_message(
 
     // bdSeq in NDEATH should match NBIRTH
     if (state.birth_received && bd_seq != state.bd_seq) {
-      std::cerr << "WARNING: NDEATH bdSeq mismatch for " << node_id
-                << " (NDEATH: " << bd_seq << ", NBIRTH: " << state.bd_seq
-                << ")\n";
+      std::cerr << "WARNING: NDEATH bdSeq mismatch for " << node_id << " (NDEATH: " << bd_seq
+                << ", NBIRTH: " << state.bd_seq << ")\n";
     }
 
     state.is_online = false;
@@ -110,9 +111,8 @@ bool Subscriber::validate_message(
     // Cannot receive DATA before BIRTH
     if (!state.birth_received) {
       std::cerr << "WARNING: Received "
-                << (topic.message_type == MessageType::NDATA ? "NDATA"
-                                                             : "DDATA")
-                << " for " << node_id << " before NBIRTH\n";
+                << (topic.message_type == MessageType::NDATA ? "NDATA" : "DDATA") << " for "
+                << node_id << " before NBIRTH\n";
       return false;
     }
 
@@ -122,8 +122,8 @@ bool Subscriber::validate_message(
       uint64_t expected_seq = (state.last_seq + 1) % SEQ_NUMBER_MAX;
 
       if (seq != expected_seq) {
-        std::cerr << "WARNING: Sequence number gap for " << node_id << " (got "
-                  << seq << ", expected " << expected_seq << ")\n";
+        std::cerr << "WARNING: Sequence number gap for " << node_id << " (got " << seq
+                  << ", expected " << expected_seq << ")\n";
         // Don't reject, just warn - could be packet loss
       }
 
@@ -136,8 +136,7 @@ bool Subscriber::validate_message(
   case MessageType::DBIRTH: {
     // DBIRTH can have any seq > 0
     if (!state.birth_received) {
-      std::cerr << "WARNING: Received DBIRTH for device on " << node_id
-                << " before node NBIRTH\n";
+      std::cerr << "WARNING: Received DBIRTH for device on " << node_id << " before node NBIRTH\n";
       return false;
     }
     return true;
@@ -153,15 +152,15 @@ bool Subscriber::validate_message(
   std::unreachable();
 }
 
-void Subscriber::update_node_state(
-    const Topic &topic, const org::eclipse::tahu::protobuf::Payload &payload) {
+void Subscriber::update_node_state(const Topic& topic,
+                                   const org::eclipse::tahu::protobuf::Payload& payload) {
   // Update tracked state based on message
   validate_message(topic, payload);
 }
 
-static int on_message_arrived(void *context, char *topicName, int topicLen,
-                              MQTTAsync_message *message) {
-  auto *subscriber = static_cast<Subscriber *>(context);
+static int on_message_arrived(void* context, char* topicName, int topicLen,
+                              MQTTAsync_message* message) {
+  auto* subscriber = static_cast<Subscriber*>(context);
 
   if (!subscriber || !topicName || !message) {
     if (message) {
@@ -176,8 +175,7 @@ static int on_message_arrived(void *context, char *topicName, int topicLen,
   // Handle STATE messages (plain text, not Sparkplug B)
   if (topic_str.starts_with("STATE/")) {
     // STATE messages are plain UTF-8 strings
-    std::string state_value(static_cast<char *>(message->payload),
-                            message->payloadlen);
+    std::string state_value(static_cast<char*>(message->payload), message->payloadlen);
 
     // Create a dummy payload for STATE - not used by Sparkplug B encoding
     org::eclipse::tahu::protobuf::Payload dummy_payload;
@@ -230,7 +228,7 @@ static int on_message_arrived(void *context, char *topicName, int topicLen,
   return 1;
 }
 
-static void on_connection_lost(void *context, char *cause) {
+static void on_connection_lost(void* context, char* cause) {
   (void)context;
   std::cerr << "Connection lost";
   if (cause) {
@@ -241,16 +239,14 @@ static void on_connection_lost(void *context, char *cause) {
 
 std::expected<void, std::string> Subscriber::connect() {
   MQTTAsync raw_client = nullptr;
-  int rc = MQTTAsync_create(&raw_client, config_.broker_url.c_str(),
-                            config_.client_id.c_str(),
+  int rc = MQTTAsync_create(&raw_client, config_.broker_url.c_str(), config_.client_id.c_str(),
                             MQTTCLIENT_PERSISTENCE_NONE, nullptr);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to create client: {}", rc));
   }
   client_ = MQTTAsyncHandle(raw_client);
 
-  rc = MQTTAsync_setCallbacks(client_.get(), this, on_connection_lost,
-                              on_message_arrived, nullptr);
+  rc = MQTTAsync_setCallbacks(client_.get(), this, on_connection_lost, on_message_arrived, nullptr);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to set callbacks: {}", rc));
   }
@@ -310,14 +306,12 @@ std::expected<void, std::string> Subscriber::subscribe_all() {
   return {};
 }
 
-std::expected<void, std::string>
-Subscriber::subscribe_node(std::string_view edge_node_id) {
+std::expected<void, std::string> Subscriber::subscribe_node(std::string_view edge_node_id) {
   if (!client_) {
     return std::unexpected("Not connected");
   }
 
-  std::string topic =
-      std::format("spBv1.0/{}/+/{}/#", config_.group_id, edge_node_id);
+  std::string topic = std::format("spBv1.0/{}/+/{}/#", config_.group_id, edge_node_id);
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
 
@@ -329,8 +323,7 @@ Subscriber::subscribe_node(std::string_view edge_node_id) {
   return {};
 }
 
-std::expected<void, std::string>
-Subscriber::subscribe_state(std::string_view host_id) {
+std::expected<void, std::string> Subscriber::subscribe_state(std::string_view host_id) {
   if (!client_) {
     return std::unexpected("Not connected");
   }

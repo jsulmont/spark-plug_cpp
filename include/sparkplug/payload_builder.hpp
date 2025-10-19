@@ -3,6 +3,7 @@
 
 #include "datatype.hpp"
 #include "sparkplug_b.pb.h"
+
 #include <chrono>
 #include <cstdint>
 #include <optional>
@@ -15,7 +16,8 @@ namespace sparkplug {
 
 namespace detail {
 
-template <typename T> consteval DataType get_datatype() {
+template <typename T>
+consteval DataType get_datatype() {
   using BaseT = std::remove_cvref_t<T>;
   if constexpr (std::is_same_v<BaseT, int8_t>)
     return DataType::Int8;
@@ -44,19 +46,14 @@ template <typename T> consteval DataType get_datatype() {
 }
 
 template <typename T>
-void set_metric_value(org::eclipse::tahu::protobuf::Payload::Metric *metric,
-                      T &&value) {
+void set_metric_value(org::eclipse::tahu::protobuf::Payload::Metric* metric, T&& value) {
   using BaseT = std::remove_cvref_t<T>;
 
-  if constexpr (std::is_same_v<BaseT, int8_t> ||
-                std::is_same_v<BaseT, int16_t> ||
-                std::is_same_v<BaseT, int32_t> ||
-                std::is_same_v<BaseT, uint8_t> ||
-                std::is_same_v<BaseT, uint16_t> ||
-                std::is_same_v<BaseT, uint32_t>) {
+  if constexpr (std::is_same_v<BaseT, int8_t> || std::is_same_v<BaseT, int16_t> ||
+                std::is_same_v<BaseT, int32_t> || std::is_same_v<BaseT, uint8_t> ||
+                std::is_same_v<BaseT, uint16_t> || std::is_same_v<BaseT, uint32_t>) {
     metric->set_int_value(value);
-  } else if constexpr (std::is_same_v<BaseT, int64_t> ||
-                       std::is_same_v<BaseT, uint64_t>) {
+  } else if constexpr (std::is_same_v<BaseT, int64_t> || std::is_same_v<BaseT, uint64_t>) {
     metric->set_long_value(value);
   } else if constexpr (std::is_same_v<BaseT, float>) {
     metric->set_float_value(value);
@@ -71,11 +68,10 @@ void set_metric_value(org::eclipse::tahu::protobuf::Payload::Metric *metric,
 }
 
 template <typename T>
-void add_metric_to_payload(org::eclipse::tahu::protobuf::Payload &payload,
-                           std::string_view name, T &&value,
-                           std::optional<uint64_t> alias,
+void add_metric_to_payload(org::eclipse::tahu::protobuf::Payload& payload, std::string_view name,
+                           T&& value, std::optional<uint64_t> alias,
                            std::optional<uint64_t> timestamp_ms) {
-  auto *metric = payload.add_metrics();
+  auto* metric = payload.add_metrics();
 
   if (!name.empty()) {
     metric->set_name(std::string(name));
@@ -93,9 +89,7 @@ void add_metric_to_payload(org::eclipse::tahu::protobuf::Payload &payload,
     ts = *timestamp_ms;
   } else {
     auto now = std::chrono::system_clock::now();
-    ts = std::chrono::duration_cast<std::chrono::milliseconds>(
-             now.time_since_epoch())
-             .count();
+    ts = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
   }
   metric->set_timestamp(ts);
 }
@@ -158,9 +152,9 @@ public:
    * @note Timestamp is automatically generated.
    */
   template <typename T>
-  PayloadBuilder &add_metric(std::string_view name, T &&value) {
-    detail::add_metric_to_payload(payload_, name, std::forward<T>(value),
-                                  std::nullopt, std::nullopt);
+  PayloadBuilder& add_metric(std::string_view name, T&& value) {
+    detail::add_metric_to_payload(payload_, name, std::forward<T>(value), std::nullopt,
+                                  std::nullopt);
     return *this;
   }
 
@@ -177,10 +171,9 @@ public:
    * @note Useful for historical data or backdated metrics.
    */
   template <typename T>
-  PayloadBuilder &add_metric(std::string_view name, T &&value,
-                             uint64_t timestamp_ms) {
-    detail::add_metric_to_payload(payload_, name, std::forward<T>(value),
-                                  std::nullopt, timestamp_ms);
+  PayloadBuilder& add_metric(std::string_view name, T&& value, uint64_t timestamp_ms) {
+    detail::add_metric_to_payload(payload_, name, std::forward<T>(value), std::nullopt,
+                                  timestamp_ms);
     return *this;
   }
 
@@ -197,10 +190,8 @@ public:
    * @note This establishes the name-to-alias mapping for subsequent NDATA messages.
    */
   template <typename T>
-  PayloadBuilder &add_metric_with_alias(std::string_view name, uint64_t alias,
-                                        T &&value) {
-    detail::add_metric_to_payload(payload_, name, std::forward<T>(value), alias,
-                                  std::nullopt);
+  PayloadBuilder& add_metric_with_alias(std::string_view name, uint64_t alias, T&& value) {
+    detail::add_metric_to_payload(payload_, name, std::forward<T>(value), alias, std::nullopt);
     return *this;
   }
 
@@ -217,9 +208,8 @@ public:
    * @note Reduces bandwidth by 60-80% vs. using full metric names.
    */
   template <typename T>
-  PayloadBuilder &add_metric_by_alias(uint64_t alias, T &&value) {
-    detail::add_metric_to_payload(payload_, "", std::forward<T>(value), alias,
-                                  std::nullopt);
+  PayloadBuilder& add_metric_by_alias(uint64_t alias, T&& value) {
+    detail::add_metric_to_payload(payload_, "", std::forward<T>(value), alias, std::nullopt);
     return *this;
   }
 
@@ -236,10 +226,8 @@ public:
    * @note Useful for historical data with specific timestamps.
    */
   template <typename T>
-  PayloadBuilder &add_metric_by_alias(uint64_t alias, T &&value,
-                                      uint64_t timestamp_ms) {
-    detail::add_metric_to_payload(payload_, "", std::forward<T>(value), alias,
-                                  timestamp_ms);
+  PayloadBuilder& add_metric_by_alias(uint64_t alias, T&& value, uint64_t timestamp_ms) {
+    detail::add_metric_to_payload(payload_, "", std::forward<T>(value), alias, timestamp_ms);
     return *this;
   }
 
@@ -252,7 +240,7 @@ public:
    *
    * @note Usually not needed; Publisher adds this automatically.
    */
-  PayloadBuilder &set_timestamp(uint64_t ts) {
+  PayloadBuilder& set_timestamp(uint64_t ts) {
     payload_.set_timestamp(ts);
     timestamp_explicitly_set_ = true;
     return *this;
@@ -267,41 +255,45 @@ public:
    *
    * @warning Do not use in normal operation; Publisher manages this automatically.
    */
-  PayloadBuilder &set_seq(uint64_t seq) {
+  PayloadBuilder& set_seq(uint64_t seq) {
     payload_.set_seq(seq);
     seq_explicitly_set_ = true;
     return *this;
   }
 
   // Add Node Control metrics (convenience methods for NBIRTH)
-  PayloadBuilder &add_node_control_rebirth(bool value = false) {
+  PayloadBuilder& add_node_control_rebirth(bool value = false) {
     add_metric("Node Control/Rebirth", value);
     return *this;
   }
 
-  PayloadBuilder &add_node_control_reboot(bool value = false) {
+  PayloadBuilder& add_node_control_reboot(bool value = false) {
     add_metric("Node Control/Reboot", value);
     return *this;
   }
 
-  PayloadBuilder &add_node_control_next_server(bool value = false) {
+  PayloadBuilder& add_node_control_next_server(bool value = false) {
     add_metric("Node Control/Next Server", value);
     return *this;
   }
 
-  PayloadBuilder &add_node_control_scan_rate(int64_t value) {
+  PayloadBuilder& add_node_control_scan_rate(int64_t value) {
     add_metric("Node Control/Scan Rate", value);
     return *this;
   }
 
   // Query methods
-  [[nodiscard]] bool has_seq() const { return seq_explicitly_set_; }
-  [[nodiscard]] bool has_timestamp() const { return timestamp_explicitly_set_; }
+  [[nodiscard]] bool has_seq() const {
+    return seq_explicitly_set_;
+  }
+  [[nodiscard]] bool has_timestamp() const {
+    return timestamp_explicitly_set_;
+  }
 
   // Build and access
   [[nodiscard]] std::vector<uint8_t> build() const;
-  [[nodiscard]] const org::eclipse::tahu::protobuf::Payload &payload() const;
-  [[nodiscard]] org::eclipse::tahu::protobuf::Payload &mutable_payload() noexcept {
+  [[nodiscard]] const org::eclipse::tahu::protobuf::Payload& payload() const;
+  [[nodiscard]] org::eclipse::tahu::protobuf::Payload& mutable_payload() noexcept {
     return payload_;
   }
 

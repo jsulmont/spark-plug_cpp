@@ -2,9 +2,10 @@
 #include <atomic>
 #include <csignal>
 #include <iostream>
+#include <thread>
+
 #include <sparkplug/payload_builder.hpp>
 #include <sparkplug/publisher.hpp>
-#include <thread>
 
 std::atomic<bool> running{true};
 std::atomic<bool> do_rebirth{false};
@@ -52,8 +53,7 @@ int main() {
   birth.add_node_control_rebirth(false);
   birth.add_node_control_reboot(false);
   birth.add_node_control_next_server(false);
-  birth.add_node_control_scan_rate(
-      static_cast<int64_t>(1000)); // 1 second default
+  birth.add_node_control_scan_rate(static_cast<int64_t>(1000)); // 1 second default
 
   // Properties - metadata about the node
   birth.add_metric("Properties/Hardware", "ARM64");

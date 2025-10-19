@@ -2,9 +2,10 @@
 #include <atomic>
 #include <csignal>
 #include <iostream>
+#include <thread>
+
 #include <sparkplug/datatype.hpp>
 #include <sparkplug/subscriber.hpp>
-#include <thread>
 
 std::atomic<bool> running{true};
 
@@ -13,7 +14,7 @@ void signal_handler(int signal) {
   running = false;
 }
 
-void print_metric(const org::eclipse::tahu::protobuf::Payload::Metric &metric) {
+void print_metric(const org::eclipse::tahu::protobuf::Payload::Metric& metric) {
   std::cout << "    " << metric.name() << " = ";
 
   switch (metric.datatype()) {
@@ -53,37 +54,34 @@ int main() {
   std::signal(SIGTERM, signal_handler);
 
   sparkplug::Subscriber::Config config{.broker_url = "tcp://localhost:1883",
-                                       .client_id =
-                                           "sparkplug_subscriber_example",
+                                       .client_id = "sparkplug_subscriber_example",
                                        .group_id = "Energy"};
 
-  auto message_handler =
-      [](const sparkplug::Topic &topic,
-         const org::eclipse::tahu::protobuf::Payload &payload) {
-        std::cout << "\n=== Message Received ===\n";
-        std::cout << "Topic: " << topic.to_string() << "\n";
-        std::cout << "Group: " << topic.group_id << "\n";
-        std::cout << "Edge Node: " << topic.edge_node_id << "\n";
-        if (!topic.device_id.empty()) {
-          std::cout << "Device: " << topic.device_id << "\n";
-        }
+  auto message_handler = [](const sparkplug::Topic& topic,
+                            const org::eclipse::tahu::protobuf::Payload& payload) {
+    std::cout << "\n=== Message Received ===\n";
+    std::cout << "Topic: " << topic.to_string() << "\n";
+    std::cout << "Group: " << topic.group_id << "\n";
+    std::cout << "Edge Node: " << topic.edge_node_id << "\n";
+    if (!topic.device_id.empty()) {
+      std::cout << "Device: " << topic.device_id << "\n";
+    }
 
-        if (payload.has_timestamp()) {
-          std::cout << "Timestamp: " << payload.timestamp() << "\n";
-        }
-        if (payload.has_seq()) {
-          std::cout << "Sequence: " << payload.seq() << "\n";
-        }
+    if (payload.has_timestamp()) {
+      std::cout << "Timestamp: " << payload.timestamp() << "\n";
+    }
+    if (payload.has_seq()) {
+      std::cout << "Sequence: " << payload.seq() << "\n";
+    }
 
-        std::cout << "Metrics (" << payload.metrics_size() << "):\n";
-        for (const auto &metric : payload.metrics()) {
-          print_metric(metric);
-        }
-        std::cout << "=======================\n";
-      };
+    std::cout << "Metrics (" << payload.metrics_size() << "):\n";
+    for (const auto& metric : payload.metrics()) {
+      print_metric(metric);
+    }
+    std::cout << "=======================\n";
+  };
 
-  sparkplug::Subscriber subscriber(std::move(config),
-                                   std::move(message_handler));
+  sparkplug::Subscriber subscriber(std::move(config), std::move(message_handler));
 
   auto connect_result = subscriber.connect();
   if (!connect_result) {

@@ -3,9 +3,10 @@
 #include <csignal>
 #include <iomanip>
 #include <iostream>
+#include <thread>
+
 #include <sparkplug/datatype.hpp>
 #include <sparkplug/subscriber.hpp>
-#include <thread>
 
 std::atomic<bool> running{true};
 std::atomic<int> message_count{0};
@@ -15,7 +16,7 @@ void signal_handler(int signal) {
   running = false;
 }
 
-void print_metric(const org::eclipse::tahu::protobuf::Payload::Metric &metric) {
+void print_metric(const org::eclipse::tahu::protobuf::Payload::Metric& metric) {
   std::cout << "    ";
 
   // Print name if present
@@ -61,7 +62,7 @@ void print_metric(const org::eclipse::tahu::protobuf::Payload::Metric &metric) {
   std::cout << "\n";
 }
 
-const char *message_type_name(sparkplug::MessageType type) {
+const char* message_type_name(sparkplug::MessageType type) {
   switch (type) {
   case sparkplug::MessageType::NBIRTH:
     return "NBIRTH";
@@ -99,32 +100,25 @@ int main() {
       .validate_sequence = true // Enable validation to see warnings
   };
 
-  auto message_handler = [](const sparkplug::Topic &topic,
-                            const org::eclipse::tahu::protobuf::Payload
-                                &payload) {
+  auto message_handler = [](const sparkplug::Topic& topic,
+                            const org::eclipse::tahu::protobuf::Payload& payload) {
     int count = ++message_count;
 
-    std::cout
-        << "\n╔════════════════════════════════════════════════════════════╗\n";
+    std::cout << "\n╔════════════════════════════════════════════════════════════╗\n";
     std::cout << "║ Message #" << std::setw(3) << count << " - " << std::setw(7)
-              << message_type_name(topic.message_type) << std::string(39, ' ')
-              << "║\n";
-    std::cout
-        << "╠════════════════════════════════════════════════════════════╣\n";
+              << message_type_name(topic.message_type) << std::string(39, ' ') << "║\n";
+    std::cout << "╠════════════════════════════════════════════════════════════╣\n";
 
-    std::cout << "║ Topic: " << std::left << std::setw(51) << topic.to_string()
-              << "║\n";
+    std::cout << "║ Topic: " << std::left << std::setw(51) << topic.to_string() << "║\n";
     std::cout << "║ Group: " << std::setw(51) << topic.group_id << "║\n";
-    std::cout << "║ Edge Node: " << std::setw(47) << topic.edge_node_id
-              << "║\n";
+    std::cout << "║ Edge Node: " << std::setw(47) << topic.edge_node_id << "║\n";
 
     if (!topic.device_id.empty()) {
       std::cout << "║ Device: " << std::setw(50) << topic.device_id << "║\n";
     }
 
     if (payload.has_timestamp()) {
-      std::cout << "║ Payload Timestamp: " << std::setw(39)
-                << payload.timestamp() << "║\n";
+      std::cout << "║ Payload Timestamp: " << std::setw(39) << payload.timestamp() << "║\n";
     }
 
     if (payload.has_seq()) {
@@ -133,22 +127,18 @@ int main() {
       std::cout << "║ Sequence: " << std::setw(48) << "(none)" << "║\n";
     }
 
-    std::cout
-        << "╠════════════════════════════════════════════════════════════╣\n";
-    std::cout << "║ Metrics: " << std::setw(49) << payload.metrics_size()
-              << "║\n";
-    std::cout
-        << "╚════════════════════════════════════════════════════════════╝\n";
+    std::cout << "╠════════════════════════════════════════════════════════════╣\n";
+    std::cout << "║ Metrics: " << std::setw(49) << payload.metrics_size() << "║\n";
+    std::cout << "╚════════════════════════════════════════════════════════════╝\n";
 
-    for (const auto &metric : payload.metrics()) {
+    for (const auto& metric : payload.metrics()) {
       print_metric(metric);
     }
 
     std::cout << std::endl; // Flush immediately
   };
 
-  sparkplug::Subscriber subscriber(std::move(config),
-                                   std::move(message_handler));
+  sparkplug::Subscriber subscriber(std::move(config), std::move(message_handler));
 
   std::cout << "🔧 Debug Subscriber Starting...\n";
 
@@ -182,8 +172,7 @@ int main() {
     if (current_count == last_count) {
       static int idle_count = 0;
       if (++idle_count % 10 == 0) {
-        std::cout << "💤 Still waiting... (received " << current_count
-                  << " messages so far)\n"
+        std::cout << "💤 Still waiting... (received " << current_count << " messages so far)\n"
                   << std::flush;
       }
     } else {
@@ -196,8 +185,7 @@ int main() {
 
   auto disconnect_result = subscriber.disconnect();
   if (!disconnect_result) {
-    std::cerr << "❌ Failed to disconnect: " << disconnect_result.error()
-              << "\n";
+    std::cerr << "❌ Failed to disconnect: " << disconnect_result.error() << "\n";
   } else {
     std::cout << "✓ Disconnected\n";
   }

@@ -1,6 +1,7 @@
 // tests/test_topic.cpp
 #include <cassert>
 #include <iostream>
+
 #include <sparkplug/topic.hpp>
 
 void test_topic_to_string() {
@@ -40,7 +41,7 @@ void test_parse_topic() {
   auto result = sparkplug::Topic::parse("spBv1.0/Energy/NDATA/Gateway01");
   assert(result.has_value());
 
-  auto &topic = *result;
+  auto& topic = *result;
   assert(topic.group_id == "Energy");
   assert(topic.message_type == sparkplug::MessageType::NDATA);
   assert(topic.edge_node_id == "Gateway01");
@@ -49,11 +50,10 @@ void test_parse_topic() {
 }
 
 void test_parse_device_topic() {
-  auto result =
-      sparkplug::Topic::parse("spBv1.0/Energy/DDATA/Gateway01/Sensor01");
+  auto result = sparkplug::Topic::parse("spBv1.0/Energy/DDATA/Gateway01/Sensor01");
   assert(result.has_value());
 
-  auto &topic = *result;
+  auto& topic = *result;
   assert(topic.group_id == "Energy");
   assert(topic.message_type == sparkplug::MessageType::DDATA);
   assert(topic.edge_node_id == "Gateway01");
@@ -65,7 +65,7 @@ void test_parse_state_topic() {
   auto result = sparkplug::Topic::parse("STATE/scada_host");
   assert(result.has_value());
 
-  auto &topic = *result;
+  auto& topic = *result;
   assert(topic.message_type == sparkplug::MessageType::STATE);
   assert(topic.edge_node_id == "scada_host");
   std::cout << "✓ Parse STATE topic\n";

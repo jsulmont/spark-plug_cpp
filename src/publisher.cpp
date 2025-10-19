@@ -1,9 +1,11 @@
 // src/publisher.cpp
 #include "sparkplug/publisher.hpp"
-#include <MQTTAsync.h>
+
 #include <cstring>
 #include <format>
 #include <thread>
+
+#include <MQTTAsync.h>
 
 namespace sparkplug {
 
@@ -26,7 +28,8 @@ void MQTTAsyncHandle::reset() noexcept {
   }
 }
 
-Publisher::Publisher(Config config) : config_(std::move(config)) {}
+Publisher::Publisher(Config config) : config_(std::move(config)) {
+}
 
 Publisher::~Publisher() {
   if (client_ && is_connected_) {
@@ -35,7 +38,7 @@ Publisher::~Publisher() {
   // unique_ptr will automatically call MQTTAsyncDeleter
 }
 
-Publisher::Publisher(Publisher &&other) noexcept
+Publisher::Publisher(Publisher&& other) noexcept
     : config_(std::move(other.config_)), client_(std::move(other.client_)),
       seq_num_(other.seq_num_), bd_seq_num_(other.bd_seq_num_),
       death_payload_data_(std::move(other.death_payload_data_)),
@@ -44,7 +47,7 @@ Publisher::Publisher(Publisher &&other) noexcept
   other.is_connected_ = false;
 }
 
-Publisher &Publisher::operator=(Publisher &&other) noexcept {
+Publisher& Publisher::operator=(Publisher&& other) noexcept {
   if (this != &other) {
     config_ = std::move(other.config_);
     client_ = std::move(other.client_);
@@ -60,8 +63,7 @@ Publisher &Publisher::operator=(Publisher &&other) noexcept {
 
 std::expected<void, std::string> Publisher::connect() {
   MQTTAsync raw_client = nullptr;
-  int rc = MQTTAsync_create(&raw_client, config_.broker_url.c_str(),
-                            config_.client_id.c_str(),
+  int rc = MQTTAsync_create(&raw_client, config_.broker_url.c_str(), config_.client_id.c_str(),
                             MQTTCLIENT_PERSISTENCE_NONE, nullptr);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to create client: {}", rc));
@@ -144,9 +146,8 @@ std::expected<void, std::string> Publisher::disconnect() {
   return {};
 }
 
-std::expected<void, std::string>
-Publisher::publish_message(const Topic &topic,
-                           std::span<const uint8_t> payload_data) {
+std::expected<void, std::string> Publisher::publish_message(const Topic& topic,
+                                                            std::span<const uint8_t> payload_data) {
   if (!client_ || !is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -154,8 +155,7 @@ Publisher::publish_message(const Topic &topic,
   auto topic_str = topic.to_string();
 
   MQTTAsync_message msg = MQTTAsync_message_initializer;
-  msg.payload =
-      const_cast<void *>(reinterpret_cast<const void *>(payload_data.data()));
+  msg.payload = const_cast<void*>(reinterpret_cast<const void*>(payload_data.data()));
   msg.payloadlen = static_cast<int>(payload_data.size());
   msg.qos = config_.qos;
   msg.retained = 0;
@@ -170,8 +170,7 @@ Publisher::publish_message(const Topic &topic,
   return {};
 }
 
-std::expected<void, std::string>
-Publisher::publish_birth(PayloadBuilder &payload) {
+std::expected<void, std::string> Publisher::publish_birth(PayloadBuilder& payload) {
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -179,9 +178,9 @@ Publisher::publish_birth(PayloadBuilder &payload) {
   payload.set_seq(0);
 
   bool has_bdseq = false;
-  auto &proto_payload = payload.mutable_payload();
+  auto& proto_payload = payload.mutable_payload();
 
-  for (const auto &metric : proto_payload.metrics()) {
+  for (const auto& metric : proto_payload.metrics()) {
     if (metric.name() == "bdSeq") {
       has_bdseq = true;
       break;
@@ -189,7 +188,7 @@ Publisher::publish_birth(PayloadBuilder &payload) {
   }
 
   if (!has_bdseq) {
-    auto *metric = proto_payload.add_metrics();
+    auto* metric = proto_payload.add_metrics();
     metric->set_name("bdSeq");
     metric->set_datatype(static_cast<uint32_t>(DataType::UInt64));
     metric->set_long_value(bd_seq_num_);
@@ -214,8 +213,7 @@ Publisher::publish_birth(PayloadBuilder &payload) {
   return {};
 }
 
-std::expected<void, std::string>
-Publisher::publish_data(PayloadBuilder &payload) {
+std::expected<void, std::string> Publisher::publish_data(PayloadBuilder& payload) {
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -265,13 +263,12 @@ std::expected<void, std::string> Publisher::rebirth() {
   bd_seq_num_++;
 
   org::eclipse::tahu::protobuf::Payload proto_payload;
-  if (!proto_payload.ParseFromArray(
-          last_birth_payload_.data(),
-          static_cast<int>(last_birth_payload_.size()))) {
+  if (!proto_payload.ParseFromArray(last_birth_payload_.data(),
+                                    static_cast<int>(last_birth_payload_.size()))) {
     return std::unexpected("Failed to parse stored birth payload");
   }
 
-  for (auto &metric : *proto_payload.mutable_metrics()) {
+  for (auto& metric : *proto_payload.mutable_metrics()) {
     if (metric.name() == "bdSeq") {
       metric.set_long_value(bd_seq_num_);
       break;
@@ -286,8 +283,7 @@ std::expected<void, std::string> Publisher::rebirth() {
               .device_id = ""};
 
   std::vector<uint8_t> payload_data(proto_payload.ByteSizeLong());
-  proto_payload.SerializeToArray(payload_data.data(),
-                                 static_cast<int>(payload_data.size()));
+  proto_payload.SerializeToArray(payload_data.data(), static_cast<int>(payload_data.size()));
 
   auto result = publish_message(topic, payload_data);
   if (!result) {

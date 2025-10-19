@@ -1,0 +1,55 @@
+name: Format Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  format:
+    name: Check code formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format-16
+
+      - name: Check C++ formatting
+        run: |
+          # Find all C++ source and header files
+          FILES=$(find src include tests examples \
+            \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" \) \
+            -not -path "*/build/*" \
+            -not -path "*/build-*/*")
+
+          # Check formatting (dry-run, error on differences)
+          echo "Checking formatting for:"
+          echo "$FILES" | tr ' ' '\n'
+          echo ""
+
+          # Run clang-format and check if any files would be modified
+          echo "$FILES" | xargs clang-format-16 --dry-run --Werror
+
+          if [ $? -ne 0 ]; then
+            echo ""
+            echo "❌ Formatting issues found!"
+            echo "Run the following to fix:"
+            echo "  find src include tests examples \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) | xargs clang-format -i"
+            exit 1
+          fi
+
+          echo "✅ All files are properly formatted"
+
+      - name: Check for .clang-format file
+        run: |
+          if [ ! -f .clang-format ]; then
+            echo "❌ .clang-format file not found!"
+            exit 1
+          fi
+          echo "✅ .clang-format configuration found"

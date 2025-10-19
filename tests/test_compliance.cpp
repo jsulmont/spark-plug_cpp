@@ -3,10 +3,11 @@
 #include <atomic>
 #include <cassert>
 #include <iostream>
-#include <sparkplug/publisher.hpp>
-#include <sparkplug/subscriber.hpp>
 #include <thread>
 #include <vector>
+
+#include <sparkplug/publisher.hpp>
+#include <sparkplug/subscriber.hpp>
 
 // Test result tracking
 struct TestResult {
@@ -17,8 +18,7 @@ struct TestResult {
 
 std::vector<TestResult> results;
 
-void report_test(const std::string &name, bool passed,
-                 const std::string &msg = "") {
+void report_test(const std::string& name, bool passed, const std::string& msg = "") {
   results.push_back({name, passed, msg});
   std::cout << (passed ? "✓" : "✗") << " " << name;
   if (!msg.empty()) {
@@ -84,8 +84,7 @@ void test_sequence_wraps() {
     sparkplug::PayloadBuilder data;
     data.add_metric("test", i);
     if (!pub.publish_data(data)) {
-      report_test("Sequence wraps at 256", false,
-                  std::format("Failed at iteration {}", i));
+      report_test("Sequence wraps at 256", false, std::format("Failed at iteration {}", i));
       (void)pub.disconnect();
       return;
     }
@@ -131,10 +130,8 @@ void test_bdseq_increment() {
   uint64_t second_bdseq = pub.get_bd_seq();
   bool passed = (second_bdseq == first_bdseq + 1);
 
-  report_test(
-      "bdSeq increments on rebirth", passed,
-      passed ? ""
-             : std::format("First={}, Second={}", first_bdseq, second_bdseq));
+  report_test("bdSeq increments on rebirth", passed,
+              passed ? "" : std::format("First={}, Second={}", first_bdseq, second_bdseq));
 
   (void)pub.disconnect();
 }
@@ -144,11 +141,11 @@ void test_nbirth_has_bdseq() {
   std::atomic<bool> found_bdseq{false};
   std::atomic<bool> got_nbirth{false};
 
-  auto callback = [&](const sparkplug::Topic &topic,
-                      const org::eclipse::tahu::protobuf::Payload &payload) {
+  auto callback = [&](const sparkplug::Topic& topic,
+                      const org::eclipse::tahu::protobuf::Payload& payload) {
     if (topic.message_type == sparkplug::MessageType::NBIRTH) {
       got_nbirth = true;
-      for (const auto &metric : payload.metrics()) {
+      for (const auto& metric : payload.metrics()) {
         if (metric.name() == "bdSeq") {
           found_bdseq = true;
           break;
@@ -157,9 +154,8 @@ void test_nbirth_has_bdseq() {
     }
   };
 
-  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
-                                           .client_id = "test_bdseq_sub",
-                                           .group_id = "TestGroup"};
+  sparkplug::Subscriber::Config sub_config{
+      .broker_url = "tcp://localhost:1883", .client_id = "test_bdseq_sub", .group_id = "TestGroup"};
 
   sparkplug::Subscriber sub(std::move(sub_config), callback);
 
@@ -195,8 +191,7 @@ void test_nbirth_has_bdseq() {
 
   auto birth_result = pub.publish_birth(birth);
   if (!birth_result) {
-    report_test("NBIRTH contains bdSeq", false,
-                "Failed to publish: " + birth_result.error());
+    report_test("NBIRTH contains bdSeq", false, "Failed to publish: " + birth_result.error());
     (void)pub.disconnect();
     (void)sub.disconnect();
     return;
@@ -221,11 +216,11 @@ void test_alias_usage() {
   std::atomic<bool> has_alias{false};
   std::atomic<bool> no_name{false};
 
-  auto callback = [&](const sparkplug::Topic &topic,
-                      const org::eclipse::tahu::protobuf::Payload &payload) {
+  auto callback = [&](const sparkplug::Topic& topic,
+                      const org::eclipse::tahu::protobuf::Payload& payload) {
     if (topic.message_type == sparkplug::MessageType::NDATA) {
       got_ndata = true;
-      for (const auto &metric : payload.metrics()) {
+      for (const auto& metric : payload.metrics()) {
         if (metric.has_alias()) {
           has_alias = true;
         }
@@ -237,9 +232,8 @@ void test_alias_usage() {
     }
   };
 
-  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
-                                           .client_id = "test_alias_sub",
-                                           .group_id = "TestGroup"};
+  sparkplug::Subscriber::Config sub_config{
+      .broker_url = "tcp://localhost:1883", .client_id = "test_alias_sub", .group_id = "TestGroup"};
 
   sparkplug::Subscriber sub(std::move(sub_config), callback);
   if (!sub.connect()) {
@@ -271,8 +265,7 @@ void test_alias_usage() {
   birth.add_metric_with_alias("Temperature", 1, 20.5);
   auto birth_result = pub.publish_birth(birth);
   if (!birth_result) {
-    report_test("NDATA uses aliases", false,
-                "NBIRTH failed: " + birth_result.error());
+    report_test("NDATA uses aliases", false, "NBIRTH failed: " + birth_result.error());
     (void)pub.disconnect();
     (void)sub.disconnect();
     return;
@@ -285,8 +278,7 @@ void test_alias_usage() {
   data.add_metric_by_alias(1, 21.0);
   auto data_result = pub.publish_data(data);
   if (!data_result) {
-    report_test("NDATA uses aliases", false,
-                "NDATA failed: " + data_result.error());
+    report_test("NDATA uses aliases", false, "NDATA failed: " + data_result.error());
     (void)pub.disconnect();
     (void)sub.disconnect();
     return;
@@ -311,7 +303,7 @@ void test_subscriber_validation() {
                                        .group_id = "TestGroup",
                                        .validate_sequence = true};
 
-  auto callback = [](const sparkplug::Topic &, const auto &) {
+  auto callback = [](const sparkplug::Topic&, const auto&) {
     // Just receive messages
   };
 
@@ -339,8 +331,7 @@ void test_payload_timestamp() {
   proto.ParseFromArray(built.data(), static_cast<int>(built.size()));
 
   bool passed = proto.has_timestamp() && proto.timestamp() > 0;
-  report_test("Payload has timestamp", passed,
-              passed ? "" : "Timestamp missing or zero");
+  report_test("Payload has timestamp", passed, passed ? "" : "Timestamp missing or zero");
 }
 
 // Test 8: Auto sequence management
@@ -361,8 +352,7 @@ void test_auto_sequence() {
   birth.add_metric("test", 0);
   auto birth_result = pub.publish_birth(birth);
   if (!birth_result) {
-    report_test("Auto sequence management", false,
-                "NBIRTH failed: " + birth_result.error());
+    report_test("Auto sequence management", false, "NBIRTH failed: " + birth_result.error());
     (void)pub.disconnect();
     return;
   }
@@ -374,8 +364,7 @@ void test_auto_sequence() {
   data.add_metric("test", 1);
   auto data_result = pub.publish_data(data);
   if (!data_result) {
-    report_test("Auto sequence management", false,
-                "NDATA failed: " + data_result.error());
+    report_test("Auto sequence management", false, "NDATA failed: " + data_result.error());
     (void)pub.disconnect();
     return;
   }
@@ -383,9 +372,8 @@ void test_auto_sequence() {
   uint64_t new_seq = pub.get_seq();
   bool passed = (new_seq == 1 && prev_seq == 0);
 
-  report_test(
-      "Auto sequence management", passed,
-      passed ? "" : std::format("Expected 0→1, got {}→{}", prev_seq, new_seq));
+  report_test("Auto sequence management", passed,
+              passed ? "" : std::format("Expected 0→1, got {}→{}", prev_seq, new_seq));
 
   (void)pub.disconnect();
 }
@@ -408,7 +396,7 @@ int main() {
   int failed = 0;
 
   std::cout << "\n=== Test Results ===\n";
-  for (const auto &result : results) {
+  for (const auto& result : results) {
     if (result.passed) {
       passed++;
     } else {

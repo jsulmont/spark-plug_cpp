@@ -1,15 +1,17 @@
 // include/sparkplug/mqtt_handle.hpp
 #pragma once
 
-typedef void *MQTTAsync;
+typedef void* MQTTAsync;
 
 namespace sparkplug {
 
 // RAII wrapper for MQTTAsync client handle
 class MQTTAsyncHandle {
 public:
-  MQTTAsyncHandle() noexcept : client_(nullptr) {}
-  explicit MQTTAsyncHandle(MQTTAsync client) noexcept : client_(client) {}
+  MQTTAsyncHandle() noexcept : client_(nullptr) {
+  }
+  explicit MQTTAsyncHandle(MQTTAsync client) noexcept : client_(client) {
+  }
 
   ~MQTTAsyncHandle() noexcept;
 
@@ -32,9 +34,15 @@ public:
   }
 
   // Access
-  MQTTAsync get() const noexcept { return client_; }
-  MQTTAsync operator*() const noexcept { return client_; }
-  explicit operator bool() const noexcept { return client_ != nullptr; }
+  MQTTAsync get() const noexcept {
+    return client_;
+  }
+  MQTTAsync operator*() const noexcept {
+    return client_;
+  }
+  explicit operator bool() const noexcept {
+    return client_ != nullptr;
+  }
 
   // Modifiers
   void reset() noexcept;

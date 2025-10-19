@@ -1,5 +1,6 @@
 // src/topic.cpp
 #include "sparkplug/topic.hpp"
+
 #include <algorithm>
 #include <format>
 #include <ranges>
@@ -37,8 +38,7 @@ constexpr std::string_view message_type_to_string(MessageType type) {
   std::unreachable();
 }
 
-std::expected<MessageType, std::string>
-parse_message_type(std::string_view str) {
+std::expected<MessageType, std::string> parse_message_type(std::string_view str) {
   if (str == "NBIRTH")
     return MessageType::NBIRTH;
   if (str == "NDEATH")
@@ -66,8 +66,8 @@ std::string Topic::to_string() const {
     return std::format("STATE/{}", edge_node_id);
   }
 
-  auto base = std::format("{}/{}/{}/{}", NAMESPACE, group_id,
-                          message_type_to_string(message_type), edge_node_id);
+  auto base = std::format("{}/{}/{}/{}", NAMESPACE, group_id, message_type_to_string(message_type),
+                          edge_node_id);
 
   if (!device_id.empty()) {
     return std::format("{}/{}", base, device_id);
@@ -76,9 +76,8 @@ std::string Topic::to_string() const {
 }
 
 std::expected<Topic, std::string> Topic::parse(std::string_view topic_str) {
-  auto parts =
-      topic_str | std::views::split('/') |
-      std::views::transform([](auto &&rng) { return std::string_view(rng); });
+  auto parts = topic_str | std::views::split('/') |
+               std::views::transform([](auto&& rng) { return std::string_view(rng); });
   auto elements = parts | std::ranges::to<std::vector>();
   if (elements.size() < 2) {
     return std::unexpected("Invalid topic format");
@@ -103,8 +102,7 @@ std::expected<Topic, std::string> Topic::parse(std::string_view topic_str) {
   return Topic{.group_id = std::string(elements[1]),
                .message_type = *msg_type,
                .edge_node_id = std::string(elements[3]),
-               .device_id =
-                   elements.size() > 4 ? std::string(elements[4]) : ""};
+               .device_id = elements.size() > 4 ? std::string(elements[4]) : ""};
 }
 
 } // namespace sparkplug

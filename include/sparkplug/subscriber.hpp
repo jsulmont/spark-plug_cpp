@@ -4,6 +4,7 @@
 #include "mqtt_handle.hpp"
 #include "sparkplug_b.pb.h"
 #include "topic.hpp"
+
 #include <expected>
 #include <functional>
 #include <memory>
@@ -19,8 +20,8 @@ namespace sparkplug {
  * @param topic Parsed Sparkplug B topic containing group_id, message_type, edge_node_id, etc.
  * @param payload Decoded Sparkplug B protobuf payload with metrics
  */
-using MessageCallback = std::function<void(
-    const Topic &, const org::eclipse::tahu::protobuf::Payload &)>;
+using MessageCallback =
+    std::function<void(const Topic&, const org::eclipse::tahu::protobuf::Payload&)>;
 
 /**
  * @brief Sparkplug B subscriber for consuming edge node messages with validation.
@@ -68,12 +69,12 @@ public:
    * @brief Configuration parameters for the Sparkplug B subscriber.
    */
   struct Config {
-    std::string broker_url;          ///< MQTT broker URL (e.g., "tcp://localhost:1883")
-    std::string client_id;           ///< Unique MQTT client identifier
-    std::string group_id;            ///< Sparkplug group ID to subscribe to
-    int qos = 1;                     ///< MQTT QoS level (0, 1, or 2)
-    bool clean_session = true;       ///< MQTT clean session flag
-    bool validate_sequence = true;   ///< Enable sequence number validation (detects packet loss)
+    std::string broker_url;        ///< MQTT broker URL (e.g., "tcp://localhost:1883")
+    std::string client_id;         ///< Unique MQTT client identifier
+    std::string group_id;          ///< Sparkplug group ID to subscribe to
+    int qos = 1;                   ///< MQTT QoS level (0, 1, or 2)
+    bool clean_session = true;     ///< MQTT clean session flag
+    bool validate_sequence = true; ///< Enable sequence number validation (detects packet loss)
   };
 
   /**
@@ -82,11 +83,11 @@ public:
    * Used internally for sequence validation and monitoring.
    */
   struct NodeState {
-    bool is_online{false};           ///< True if NBIRTH received and node is online
-    uint64_t last_seq{255};          ///< Last received sequence number (starts at 255)
-    uint64_t bd_seq{0};              ///< Current birth/death sequence number
-    uint64_t birth_timestamp{0};     ///< Timestamp of last NBIRTH
-    bool birth_received{false};      ///< True if NBIRTH has been received
+    bool is_online{false};       ///< True if NBIRTH received and node is online
+    uint64_t last_seq{255};      ///< Last received sequence number (starts at 255)
+    uint64_t bd_seq{0};          ///< Current birth/death sequence number
+    uint64_t birth_timestamp{0}; ///< Timestamp of last NBIRTH
+    bool birth_received{false};  ///< True if NBIRTH has been received
   };
 
   /**
@@ -105,10 +106,10 @@ public:
    */
   ~Subscriber();
 
-  Subscriber(const Subscriber &) = delete;
-  Subscriber &operator=(const Subscriber &) = delete;
-  Subscriber(Subscriber &&) noexcept;
-  Subscriber &operator=(Subscriber &&) noexcept;
+  Subscriber(const Subscriber&) = delete;
+  Subscriber& operator=(const Subscriber&) = delete;
+  Subscriber(Subscriber&&) noexcept;
+  Subscriber& operator=(Subscriber&&) noexcept;
 
   /**
    * @brief Connects to the MQTT broker.
@@ -154,8 +155,7 @@ public:
    *
    * @note More efficient than subscribe_all() if you only need specific nodes.
    */
-  [[nodiscard]] std::expected<void, std::string>
-  subscribe_node(std::string_view edge_node_id);
+  [[nodiscard]] std::expected<void, std::string> subscribe_node(std::string_view edge_node_id);
 
   /**
    * @brief Subscribes to STATE messages from a primary application.
@@ -169,8 +169,7 @@ public:
    *
    * @note STATE messages are outside the normal Sparkplug topic namespace.
    */
-  [[nodiscard]] std::expected<void, std::string>
-  subscribe_state(std::string_view host_id);
+  [[nodiscard]] std::expected<void, std::string> subscribe_state(std::string_view host_id);
 
   /**
    * @brief Gets the current state of a specific edge node.
@@ -195,8 +194,7 @@ public:
    *
    * @note This is public for technical reasons but should not be called directly.
    */
-  void update_node_state(const Topic &topic,
-                         const org::eclipse::tahu::protobuf::Payload &payload);
+  void update_node_state(const Topic& topic, const org::eclipse::tahu::protobuf::Payload& payload);
 
   /**
    * @brief User-provided callback for received messages.
@@ -212,8 +210,7 @@ private:
   // Track state of each edge node for validation
   std::unordered_map<std::string, NodeState> node_states_;
 
-  bool validate_message(const Topic &topic,
-                        const org::eclipse::tahu::protobuf::Payload &payload);
+  bool validate_message(const Topic& topic, const org::eclipse::tahu::protobuf::Payload& payload);
 };
 
 } // namespace sparkplug

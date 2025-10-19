@@ -4,6 +4,7 @@
 #include "mqtt_handle.hpp"
 #include "payload_builder.hpp"
 #include "topic.hpp"
+
 #include <expected>
 #include <memory>
 #include <span>
@@ -59,13 +60,13 @@ public:
    * @brief Configuration parameters for the Sparkplug B publisher.
    */
   struct Config {
-    std::string broker_url;        ///< MQTT broker URL (e.g., "tcp://localhost:1883")
-    std::string client_id;         ///< Unique MQTT client identifier
-    std::string group_id;          ///< Sparkplug group ID (topic namespace)
-    std::string edge_node_id;      ///< Edge node identifier within the group
-    int qos = 1;                   ///< MQTT QoS level (0, 1, or 2). Sparkplug recommends 1.
-    bool clean_session = true;     ///< MQTT clean session flag
-    int keep_alive_interval = 60;  ///< MQTT keep-alive interval in seconds (Sparkplug recommends 60)
+    std::string broker_url;       ///< MQTT broker URL (e.g., "tcp://localhost:1883")
+    std::string client_id;        ///< Unique MQTT client identifier
+    std::string group_id;         ///< Sparkplug group ID (topic namespace)
+    std::string edge_node_id;     ///< Edge node identifier within the group
+    int qos = 1;                  ///< MQTT QoS level (0, 1, or 2). Sparkplug recommends 1.
+    bool clean_session = true;    ///< MQTT clean session flag
+    int keep_alive_interval = 60; ///< MQTT keep-alive interval in seconds (Sparkplug recommends 60)
   };
 
   /**
@@ -83,10 +84,10 @@ public:
    */
   ~Publisher();
 
-  Publisher(const Publisher &) = delete;
-  Publisher &operator=(const Publisher &) = delete;
-  Publisher(Publisher &&) noexcept;
-  Publisher &operator=(Publisher &&) noexcept;
+  Publisher(const Publisher&) = delete;
+  Publisher& operator=(const Publisher&) = delete;
+  Publisher(Publisher&&) noexcept;
+  Publisher& operator=(Publisher&&) noexcept;
 
   /**
    * @brief Connects to the MQTT broker and establishes a Sparkplug B session.
@@ -133,8 +134,7 @@ public:
    * @see publish_data() for subsequent updates
    * @see rebirth() for publishing a new NBIRTH during runtime
    */
-  [[nodiscard]] std::expected<void, std::string>
-  publish_birth(PayloadBuilder &payload);
+  [[nodiscard]] std::expected<void, std::string> publish_birth(PayloadBuilder& payload);
 
   /**
    * @brief Publishes an NDATA (Node Data) message.
@@ -154,8 +154,7 @@ public:
    *
    * @see publish_birth() for establishing aliases
    */
-  [[nodiscard]] std::expected<void, std::string>
-  publish_data(PayloadBuilder &payload);
+  [[nodiscard]] std::expected<void, std::string> publish_data(PayloadBuilder& payload);
 
   /**
    * @brief Publishes an NDEATH (Node Death) message.
@@ -193,7 +192,9 @@ public:
    *
    * @note Useful for monitoring and debugging.
    */
-  [[nodiscard]] uint64_t get_seq() const { return seq_num_; }
+  [[nodiscard]] uint64_t get_seq() const {
+    return seq_num_;
+  }
 
   /**
    * @brief Gets the current birth/death sequence number.
@@ -202,7 +203,9 @@ public:
    *
    * @note Used by SCADA to detect new sessions/rebirths.
    */
-  [[nodiscard]] uint64_t get_bd_seq() const { return bd_seq_num_; }
+  [[nodiscard]] uint64_t get_bd_seq() const {
+    return bd_seq_num_;
+  }
 
 private:
   Config config_;
@@ -219,7 +222,7 @@ private:
   bool is_connected_{false};
 
   [[nodiscard]] std::expected<void, std::string>
-  publish_message(const Topic &topic, std::span<const uint8_t> payload_data);
+  publish_message(const Topic& topic, std::span<const uint8_t> payload_data);
 };
 
 } // namespace sparkplug

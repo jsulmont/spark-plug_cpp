@@ -4,9 +4,10 @@
 #include <atomic>
 #include <csignal>
 #include <iostream>
+#include <thread>
+
 #include <sparkplug/payload_builder.hpp>
 #include <sparkplug/publisher.hpp>
-#include <thread>
 
 std::atomic<bool> running{true};
 
@@ -24,14 +25,13 @@ int main() {
   std::cout << "This example demonstrates how to add new metrics at runtime\n";
   std::cout << "by publishing a new NBIRTH message.\n\n";
 
-  sparkplug::Publisher::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "dynamic_metrics_publisher",
-      .group_id = "Energy",
-      .edge_node_id = "DynamicNode",
-      .qos = 1,
-      .clean_session = true,
-      .keep_alive_interval = 60};
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "dynamic_metrics_publisher",
+                                      .group_id = "Energy",
+                                      .edge_node_id = "DynamicNode",
+                                      .qos = 1,
+                                      .clean_session = true,
+                                      .keep_alive_interval = 60};
 
   sparkplug::Publisher publisher(std::move(config));
 
@@ -59,8 +59,7 @@ int main() {
 
   auto birth_result = publisher.publish_birth(initial_birth);
   if (!birth_result) {
-    std::cerr << "Failed to publish initial NBIRTH: " << birth_result.error()
-              << "\n";
+    std::cerr << "Failed to publish initial NBIRTH: " << birth_result.error() << "\n";
     return 1;
   }
 
@@ -93,8 +92,8 @@ int main() {
       std::cerr << "Failed to publish NDATA: " << data_result.error() << "\n";
     } else {
       if ((i + 1) % 5 == 0) {
-        std::cout << "✓ Published " << (i + 1) << " NDATA messages (seq: "
-                  << publisher.get_seq() << ")\n";
+        std::cout << "✓ Published " << (i + 1) << " NDATA messages (seq: " << publisher.get_seq()
+                  << ")\n";
       }
     }
 
@@ -141,16 +140,14 @@ int main() {
   // This automatically increments bdSeq
   auto rebirth_result = publisher.publish_birth(expanded_birth);
   if (!rebirth_result) {
-    std::cerr << "Failed to publish expanded NBIRTH: "
-              << rebirth_result.error() << "\n";
+    std::cerr << "Failed to publish expanded NBIRTH: " << rebirth_result.error() << "\n";
     return 1;
   }
 
   std::cout << "✓ Published NEW NBIRTH (this is a rebirth)\n";
   std::cout << "  Metrics: Temperature (alias:1), Voltage (alias:2), Pressure "
                "(alias:3)\n";
-  std::cout << "  bdSeq: " << publisher.get_bd_seq()
-            << " <- INCREMENTED (new session)\n";
+  std::cout << "  bdSeq: " << publisher.get_bd_seq() << " <- INCREMENTED (new session)\n";
   std::cout << "  seq: " << publisher.get_seq() << " <- RESET to 0\n\n";
 
   // ============================================================================
@@ -180,8 +177,7 @@ int main() {
     } else {
       if ((i + 1) % 5 == 0) {
         std::cout << "✓ Published " << (i + 1)
-                  << " NDATA messages with 3 metrics (seq: "
-                  << publisher.get_seq() << ")\n";
+                  << " NDATA messages with 3 metrics (seq: " << publisher.get_seq() << ")\n";
       }
     }
 
