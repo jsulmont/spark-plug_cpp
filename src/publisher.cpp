@@ -313,14 +313,17 @@ std::expected<void, std::string> Publisher::rebirth() {
     return std::unexpected("No previous birth payload stored");
   }
 
-  bd_seq_num_++;
-
+  // Parse stored birth payload to extract metrics
   org::eclipse::tahu::protobuf::Payload proto_payload;
   if (!proto_payload.ParseFromArray(last_birth_payload_.data(),
                                     static_cast<int>(last_birth_payload_.size()))) {
     return std::unexpected("Failed to parse stored birth payload");
   }
 
+  // Increment bdSeq for new session
+  bd_seq_num_++;
+
+  // Update bdSeq metric in payload
   for (auto& metric : *proto_payload.mutable_metrics()) {
     if (metric.name() == "bdSeq") {
       metric.set_long_value(bd_seq_num_);
@@ -330,20 +333,33 @@ std::expected<void, std::string> Publisher::rebirth() {
 
   proto_payload.set_seq(0);
 
+  // Serialize updated payload for reconnection
+  std::vector<uint8_t> payload_data(proto_payload.ByteSizeLong());
+  proto_payload.SerializeToArray(payload_data.data(), static_cast<int>(payload_data.size()));
+  last_birth_payload_ = payload_data;
+
+  // Disconnect (sends old NDEATH), then reconnect (sets new NDEATH with new bdSeq)
+  auto disc_result = disconnect();
+  if (!disc_result) {
+    return disc_result;
+  }
+
+  auto conn_result = connect();
+  if (!conn_result) {
+    return conn_result;
+  }
+
+  // Send new NBIRTH with updated bdSeq
   Topic topic{.group_id = config_.group_id,
               .message_type = MessageType::NBIRTH,
               .edge_node_id = config_.edge_node_id,
               .device_id = ""};
-
-  std::vector<uint8_t> payload_data(proto_payload.ByteSizeLong());
-  proto_payload.SerializeToArray(payload_data.data(), static_cast<int>(payload_data.size()));
 
   auto result = publish_message(topic, payload_data);
   if (!result) {
     return result;
   }
 
-  last_birth_payload_ = payload_data;
   seq_num_ = 0;
 
   return {};
