@@ -3,7 +3,7 @@
 
 #include <format>
 #include <future>
-#include <iostream>
+#include <print>
 #include <thread>
 #include <utility>
 
@@ -82,8 +82,8 @@ bool Subscriber::validate_message(const Topic& topic,
   switch (topic.message_type) {
   case MessageType::NBIRTH: {
     if (payload.has_seq() && payload.seq() != 0) {
-      std::cerr << "WARNING: NBIRTH for " << node_id << " has invalid seq: " << payload.seq()
-                << " (expected 0)\n";
+      std::print(stderr, "WARNING: NBIRTH for {} has invalid seq: {} (expected 0)\n", node_id,
+                 payload.seq());
       return false;
     }
 
@@ -98,7 +98,7 @@ bool Subscriber::validate_message(const Topic& topic,
     }
 
     if (!has_bdseq) {
-      std::cerr << "WARNING: NBIRTH for " << node_id << " missing required bdSeq metric\n";
+      std::print(stderr, "WARNING: NBIRTH for {} missing required bdSeq metric\n", node_id);
       return false;
     }
 
@@ -121,8 +121,8 @@ bool Subscriber::validate_message(const Topic& topic,
     }
 
     if (state.birth_received && bd_seq != state.bd_seq) {
-      std::cerr << "WARNING: NDEATH bdSeq mismatch for " << node_id << " (NDEATH: " << bd_seq
-                << ", NBIRTH: " << state.bd_seq << ")\n";
+      std::print(stderr, "WARNING: NDEATH bdSeq mismatch for {} (NDEATH: {}, NBIRTH: {})\n",
+                 node_id, bd_seq, state.bd_seq);
     }
 
     state.is_online = false;
@@ -131,7 +131,7 @@ bool Subscriber::validate_message(const Topic& topic,
 
   case MessageType::NDATA: {
     if (!state.birth_received) {
-      std::cerr << "WARNING: Received NDATA for " << node_id << " before NBIRTH\n";
+      std::print(stderr, "WARNING: Received NDATA for {} before NBIRTH\n", node_id);
       return false;
     }
 
@@ -140,8 +140,8 @@ bool Subscriber::validate_message(const Topic& topic,
       uint64_t expected_seq = (state.last_seq + 1) % SEQ_NUMBER_MAX;
 
       if (seq != expected_seq) {
-        std::cerr << "WARNING: Sequence number gap for " << node_id << " (got " << seq
-                  << ", expected " << expected_seq << ")\n";
+        std::print(stderr, "WARNING: Sequence number gap for {} (got {}, expected {})\n", node_id,
+                   seq, expected_seq);
         // Don't reject, just warn - could be packet loss
       }
 
@@ -153,13 +153,13 @@ bool Subscriber::validate_message(const Topic& topic,
 
   case MessageType::DBIRTH: {
     if (!state.birth_received) {
-      std::cerr << "WARNING: Received DBIRTH for device on " << node_id << " before node NBIRTH\n";
+      std::print(stderr, "WARNING: Received DBIRTH for device on {} before node NBIRTH\n", node_id);
       return false;
     }
 
     if (payload.has_seq() && payload.seq() != 0) {
-      std::cerr << "WARNING: DBIRTH for device '" << topic.device_id << "' on " << node_id
-                << " has invalid seq: " << payload.seq() << " (expected 0)\n";
+      std::print(stderr, "WARNING: DBIRTH for device '{}' on {} has invalid seq: {} (expected 0)\n",
+                 topic.device_id, node_id, payload.seq());
     }
 
     auto& device_state = state.devices[topic.device_id];
@@ -172,15 +172,15 @@ bool Subscriber::validate_message(const Topic& topic,
 
   case MessageType::DDATA: {
     if (!state.birth_received) {
-      std::cerr << "WARNING: Received DDATA for device '" << topic.device_id << "' on " << node_id
-                << " before node NBIRTH\n";
+      std::print(stderr, "WARNING: Received DDATA for device '{}' on {} before node NBIRTH\n",
+                 topic.device_id, node_id);
       return false;
     }
 
     auto device_it = state.devices.find(topic.device_id);
     if (device_it == state.devices.end() || !device_it->second.birth_received) {
-      std::cerr << "WARNING: Received DDATA for device '" << topic.device_id << "' on " << node_id
-                << " before DBIRTH\n";
+      std::print(stderr, "WARNING: Received DDATA for device '{}' on {} before DBIRTH\n",
+                 topic.device_id, node_id);
       return false;
     }
 
@@ -191,8 +191,9 @@ bool Subscriber::validate_message(const Topic& topic,
       uint64_t expected_seq = (device_state.last_seq + 1) % SEQ_NUMBER_MAX;
 
       if (seq != expected_seq) {
-        std::cerr << "WARNING: Sequence number gap for device '" << topic.device_id << "' on "
-                  << node_id << " (got " << seq << ", expected " << expected_seq << ")\n";
+        std::print(stderr,
+                   "WARNING: Sequence number gap for device '{}' on {} (got {}, expected {})\n",
+                   topic.device_id, node_id, seq, expected_seq);
         // Don't reject, just warn - could be packet loss
       }
 
@@ -265,7 +266,7 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
   auto topic_result = Topic::parse(topic_str);
 
   if (!topic_result) {
-    std::cerr << "Failed to parse topic: " << topic_str << "\n";
+    std::print(stderr, "Failed to parse topic: {}\n", topic_str);
     MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;
@@ -273,7 +274,7 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
 
   org::eclipse::tahu::protobuf::Payload payload;
   if (!payload.ParseFromArray(message->payload, message->payloadlen)) {
-    std::cerr << "Failed to parse Sparkplug B payload\n";
+    std::print(stderr, "Failed to parse Sparkplug B payload\n");
     MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;
@@ -302,11 +303,11 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
 
 static void on_connection_lost(void* context, char* cause) {
   (void)context;
-  std::cerr << "Connection lost";
   if (cause) {
-    std::cerr << ": " << cause;
+    std::print(stderr, "Connection lost: {}\n", cause);
+  } else {
+    std::print(stderr, "Connection lost\n");
   }
-  std::cerr << "\n";
 }
 
 std::expected<void, std::string> Subscriber::connect() {

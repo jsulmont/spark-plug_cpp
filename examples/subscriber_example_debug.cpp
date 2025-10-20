@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <iostream>
 #include <thread>
+#include <utility>
 
 #include <sparkplug/datatype.hpp>
 #include <sparkplug/subscriber.hpp>
@@ -31,24 +32,24 @@ void print_metric(const org::eclipse::tahu::protobuf::Payload::Metric& metric) {
   std::cout << " = ";
 
   switch (metric.datatype()) {
-  case static_cast<uint32_t>(sparkplug::DataType::Int32):
-  case static_cast<uint32_t>(sparkplug::DataType::UInt32):
+  case std::to_underlying(sparkplug::DataType::Int32):
+  case std::to_underlying(sparkplug::DataType::UInt32):
     std::cout << metric.int_value();
     break;
-  case static_cast<uint32_t>(sparkplug::DataType::Int64):
-  case static_cast<uint32_t>(sparkplug::DataType::UInt64):
+  case std::to_underlying(sparkplug::DataType::Int64):
+  case std::to_underlying(sparkplug::DataType::UInt64):
     std::cout << metric.long_value();
     break;
-  case static_cast<uint32_t>(sparkplug::DataType::Float):
+  case std::to_underlying(sparkplug::DataType::Float):
     std::cout << std::fixed << std::setprecision(2) << metric.float_value();
     break;
-  case static_cast<uint32_t>(sparkplug::DataType::Double):
+  case std::to_underlying(sparkplug::DataType::Double):
     std::cout << std::fixed << std::setprecision(2) << metric.double_value();
     break;
-  case static_cast<uint32_t>(sparkplug::DataType::Boolean):
+  case std::to_underlying(sparkplug::DataType::Boolean):
     std::cout << (metric.boolean_value() ? "true" : "false");
     break;
-  case static_cast<uint32_t>(sparkplug::DataType::String):
+  case std::to_underlying(sparkplug::DataType::String):
     std::cout << "\"" << metric.string_value() << "\"";
     break;
   default:

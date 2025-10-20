@@ -5,6 +5,7 @@
 #include <format>
 #include <future>
 #include <thread>
+#include <utility>
 
 #include <MQTTAsync.h>
 
@@ -232,7 +233,7 @@ std::expected<void, std::string> Publisher::publish_birth(PayloadBuilder& payloa
   if (!has_bdseq) {
     auto* metric = proto_payload.add_metrics();
     metric->set_name("bdSeq");
-    metric->set_datatype(static_cast<uint32_t>(DataType::UInt64));
+    metric->set_datatype(std::to_underlying(DataType::UInt64));
     metric->set_long_value(bd_seq_num_);
   }
 
@@ -324,22 +325,17 @@ std::expected<void, std::string> Publisher::rebirth() {
   last_birth_payload_ = payload_data;
 
   // Disconnect (sends old NDEATH), then reconnect (sets new NDEATH with new bdSeq)
-  auto disc_result = disconnect();
-  if (!disc_result) {
-    return disc_result;
-  }
-
-  auto conn_result = connect();
-  if (!conn_result) {
-    return conn_result;
-  }
-
   Topic topic{.group_id = config_.group_id,
               .message_type = MessageType::NBIRTH,
               .edge_node_id = config_.edge_node_id,
               .device_id = ""};
 
-  auto result = publish_message(topic, payload_data);
+  auto result = disconnect()
+                    .and_then([this]() { return connect(); })
+                    .and_then([this, &topic, &payload_data]() {
+                      return publish_message(topic, payload_data);
+                    });
+
   if (!result) {
     return result;
   }

@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace sparkplug {
@@ -80,7 +81,7 @@ void add_metric_to_payload(org::eclipse::tahu::protobuf::Payload& payload, std::
     metric->set_alias(*alias);
   }
 
-  metric->set_datatype(static_cast<uint32_t>(get_datatype<T>()));
+  metric->set_datatype(std::to_underlying(get_datatype<T>()));
   set_metric_value(metric, std::forward<T>(value));
 
   // Use provided timestamp or current time
