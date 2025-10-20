@@ -5,6 +5,7 @@
 #include "sparkplug_b.pb.h"
 
 #include <chrono>
+#include <concepts>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -15,9 +16,51 @@
 
 namespace sparkplug {
 
+// Concepts for Sparkplug B type system
+
+/// Signed integer types supported by Sparkplug B
+template <typename T>
+concept SparkplugSignedInteger =
+    std::same_as<std::remove_cvref_t<T>, int8_t> || std::same_as<std::remove_cvref_t<T>, int16_t> ||
+    std::same_as<std::remove_cvref_t<T>, int32_t> || std::same_as<std::remove_cvref_t<T>, int64_t>;
+
+/// Unsigned integer types supported by Sparkplug B
+template <typename T>
+concept SparkplugUnsignedInteger = std::same_as<std::remove_cvref_t<T>, uint8_t> ||
+                                   std::same_as<std::remove_cvref_t<T>, uint16_t> ||
+                                   std::same_as<std::remove_cvref_t<T>, uint32_t> ||
+                                   std::same_as<std::remove_cvref_t<T>, uint64_t>;
+
+/// Any integer type supported by Sparkplug B (signed or unsigned)
+template <typename T>
+concept SparkplugInteger = SparkplugSignedInteger<T> || SparkplugUnsignedInteger<T>;
+
+/// Floating-point types supported by Sparkplug B
+template <typename T>
+concept SparkplugFloat =
+    std::same_as<std::remove_cvref_t<T>, float> || std::same_as<std::remove_cvref_t<T>, double>;
+
+/// Boolean type
+template <typename T>
+concept SparkplugBoolean = std::same_as<std::remove_cvref_t<T>, bool>;
+
+/// String-like types supported by Sparkplug B
+template <typename T>
+concept SparkplugString =
+    std::convertible_to<T, std::string_view> && !SparkplugBoolean<T> && !SparkplugInteger<T>;
+
+/// Numeric types (integers and floats)
+template <typename T>
+concept SparkplugNumeric = SparkplugInteger<T> || SparkplugFloat<T>;
+
+/// Any metric type supported by Sparkplug B
+template <typename T>
+concept SparkplugMetricType =
+    SparkplugInteger<T> || SparkplugFloat<T> || SparkplugBoolean<T> || SparkplugString<T>;
+
 namespace detail {
 
-template <typename T>
+template <SparkplugMetricType T>
 consteval DataType get_datatype() {
   using BaseT = std::remove_cvref_t<T>;
   if constexpr (std::is_same_v<BaseT, int8_t>)
@@ -46,7 +89,7 @@ consteval DataType get_datatype() {
     return DataType::String;
 }
 
-template <typename T>
+template <SparkplugMetricType T>
 void set_metric_value(org::eclipse::tahu::protobuf::Payload::Metric* metric, T&& value) {
   using BaseT = std::remove_cvref_t<T>;
 
@@ -68,7 +111,7 @@ void set_metric_value(org::eclipse::tahu::protobuf::Payload::Metric* metric, T&&
   }
 }
 
-template <typename T>
+template <SparkplugMetricType T>
 void add_metric_to_payload(org::eclipse::tahu::protobuf::Payload& payload, std::string_view name,
                            T&& value, std::optional<uint64_t> alias,
                            std::optional<uint64_t> timestamp_ms) {
@@ -144,7 +187,7 @@ public:
   /**
    * @brief Adds a metric by name only (for NBIRTH without aliases).
    *
-   * @tparam T Value type (automatically deduced)
+   * @tparam T Value type (automatically deduced, must satisfy SparkplugMetricType)
    * @param name Metric name
    * @param value Metric value
    *
@@ -152,7 +195,7 @@ public:
    *
    * @note Timestamp is automatically generated.
    */
-  template <typename T>
+  template <SparkplugMetricType T>
   PayloadBuilder& add_metric(std::string_view name, T&& value) {
     detail::add_metric_to_payload(payload_, name, std::forward<T>(value), std::nullopt,
                                   std::nullopt);
@@ -162,7 +205,7 @@ public:
   /**
    * @brief Adds a metric by name with a custom timestamp.
    *
-   * @tparam T Value type (automatically deduced)
+   * @tparam T Value type (automatically deduced, must satisfy SparkplugMetricType)
    * @param name Metric name
    * @param value Metric value
    * @param timestamp_ms Custom timestamp in milliseconds since Unix epoch
@@ -171,7 +214,7 @@ public:
    *
    * @note Useful for historical data or backdated metrics.
    */
-  template <typename T>
+  template <SparkplugMetricType T>
   PayloadBuilder& add_metric(std::string_view name, T&& value, uint64_t timestamp_ms) {
     detail::add_metric_to_payload(payload_, name, std::forward<T>(value), std::nullopt,
                                   timestamp_ms);
@@ -181,7 +224,7 @@ public:
   /**
    * @brief Adds a metric with both name and alias (for NBIRTH messages).
    *
-   * @tparam T Value type (automatically deduced)
+   * @tparam T Value type (automatically deduced, must satisfy SparkplugMetricType)
    * @param name Metric name
    * @param alias Metric alias (numeric identifier for NDATA)
    * @param value Metric value
@@ -190,7 +233,7 @@ public:
    *
    * @note This establishes the name-to-alias mapping for subsequent NDATA messages.
    */
-  template <typename T>
+  template <SparkplugMetricType T>
   PayloadBuilder& add_metric_with_alias(std::string_view name, uint64_t alias, T&& value) {
     detail::add_metric_to_payload(payload_, name, std::forward<T>(value), alias, std::nullopt);
     return *this;
@@ -199,7 +242,7 @@ public:
   /**
    * @brief Adds a metric by alias only (for NDATA messages).
    *
-   * @tparam T Value type (automatically deduced)
+   * @tparam T Value type (automatically deduced, must satisfy SparkplugMetricType)
    * @param alias Metric alias (must be established in NBIRTH)
    * @param value Metric value
    *
@@ -208,7 +251,7 @@ public:
    * @note Only include metrics that have changed (Report by Exception).
    * @note Reduces bandwidth by 60-80% vs. using full metric names.
    */
-  template <typename T>
+  template <SparkplugMetricType T>
   PayloadBuilder& add_metric_by_alias(uint64_t alias, T&& value) {
     detail::add_metric_to_payload(payload_, "", std::forward<T>(value), alias, std::nullopt);
     return *this;
@@ -217,7 +260,7 @@ public:
   /**
    * @brief Adds a metric by alias with a custom timestamp.
    *
-   * @tparam T Value type (automatically deduced)
+   * @tparam T Value type (automatically deduced, must satisfy SparkplugMetricType)
    * @param alias Metric alias
    * @param value Metric value
    * @param timestamp_ms Custom timestamp in milliseconds since Unix epoch
@@ -226,7 +269,7 @@ public:
    *
    * @note Useful for historical data with specific timestamps.
    */
-  template <typename T>
+  template <SparkplugMetricType T>
   PayloadBuilder& add_metric_by_alias(uint64_t alias, T&& value, uint64_t timestamp_ms) {
     detail::add_metric_to_payload(payload_, "", std::forward<T>(value), alias, timestamp_ms);
     return *this;
