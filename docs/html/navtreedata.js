@@ -59,6 +59,7 @@ var NAVTREE =
     [ "License", "index.html#autotoc_md28", null ],
     [ "References", "index.html#autotoc_md29", null ],
     [ "Roadmap", "index.html#autotoc_md30", null ],
+    [ "Concepts", "concepts.html", "concepts" ],
     [ "Classes", "annotated.html", [
       [ "Class List", "annotated.html", "annotated_dup" ],
       [ "Class Index", "classes.html", null ],

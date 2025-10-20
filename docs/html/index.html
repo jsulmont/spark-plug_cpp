@@ -94,6 +94,7 @@ $(function(){initNavTree('index.html','',''); });
 <div class="contents">
 <div class="textblock"><p><a class="anchor" id="md_README"></a></p>
 <p>A modern C++23 implementation of the Eclipse Sparkplug B 2.2 specification for Industrial IoT.</p>
+<p><b><a href="https://jsulmont.github.io/spark-plug_cpp/html/">📚 API Documentation</a></b> | <a href="https://www.eclipse.org/tahu/spec/Sparkplug%20Topic%20Namespace%20and%20State%20ManagementV2.2-with%20appendix%20B%20format%20-%20Eclipse.pdf">Sparkplug Specification</a></p>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md1"></a>
 Features</h1>
 <ul>
@@ -106,8 +107,9 @@ Features</h1>
 </ul>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md2"></a>
 Documentation</h1>
-<p>Full API documentation is available in the <span class="tt">docs/html</span> directory. Open <span class="tt">docs/html/index.html</span> in your browser to view the complete API reference.</p>
-<p>To regenerate the documentation: </p><div class="fragment"><div class="line">cmake --build build --target docs</div>
+<p>Full API documentation is available online <b><a href="https://jsulmont.github.io/spark-plug_cpp/html/">here</a></b></p>
+<p>The documentation includes complete API reference, examples, and class diagrams.</p>
+<p>To regenerate locally: </p><div class="fragment"><div class="line">cmake --build build --target docs</div>
 </div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md3"></a>
 What is Sparkplug B?</h1>
 <p>Sparkplug B is an MQTT-based protocol specification for Industrial IoT that provides:</p>
@@ -210,9 +212,9 @@ Basic Publisher Example</h2>
 <div class="line">  publisher.disconnect();</div>
 <div class="line">  <span class="keywordflow">return</span> 0;</div>
 <div class="line">}</div>
-<div class="ttc" id="aclasssparkplug_1_1PayloadBuilder_html"><div class="ttname"><a href="classsparkplug_1_1PayloadBuilder.html">sparkplug::PayloadBuilder</a></div><div class="ttdoc">Type-safe builder for Sparkplug B payloads with automatic type detection.</div><div class="ttdef"><b>Definition</b> <a href="payload__builder_8hpp_source.html#l00136">payload_builder.hpp:136</a></div></div>
-<div class="ttc" id="aclasssparkplug_1_1PayloadBuilder_html_a0cb1f70cd4587d1da66d9ff8b3fe1581"><div class="ttname"><a href="classsparkplug_1_1PayloadBuilder.html#a0cb1f70cd4587d1da66d9ff8b3fe1581">sparkplug::PayloadBuilder::add_metric_by_alias</a></div><div class="ttdeci">PayloadBuilder &amp; add_metric_by_alias(uint64_t alias, T &amp;&amp;value)</div><div class="ttdoc">Adds a metric by alias only (for NDATA messages).</div><div class="ttdef"><b>Definition</b> <a href="payload__builder_8hpp_source.html#l00211">payload_builder.hpp:211</a></div></div>
-<div class="ttc" id="aclasssparkplug_1_1PayloadBuilder_html_a676ca0d9675d16485b7bbd4f5dbfffa7"><div class="ttname"><a href="classsparkplug_1_1PayloadBuilder.html#a676ca0d9675d16485b7bbd4f5dbfffa7">sparkplug::PayloadBuilder::add_metric_with_alias</a></div><div class="ttdeci">PayloadBuilder &amp; add_metric_with_alias(std::string_view name, uint64_t alias, T &amp;&amp;value)</div><div class="ttdoc">Adds a metric with both name and alias (for NBIRTH messages).</div><div class="ttdef"><b>Definition</b> <a href="payload__builder_8hpp_source.html#l00193">payload_builder.hpp:193</a></div></div>
+<div class="ttc" id="aclasssparkplug_1_1PayloadBuilder_html"><div class="ttname"><a href="classsparkplug_1_1PayloadBuilder.html">sparkplug::PayloadBuilder</a></div><div class="ttdoc">Type-safe builder for Sparkplug B payloads with automatic type detection.</div><div class="ttdef"><b>Definition</b> <a href="payload__builder_8hpp_source.html#l00180">payload_builder.hpp:180</a></div></div>
+<div class="ttc" id="aclasssparkplug_1_1PayloadBuilder_html_a0cb1f70cd4587d1da66d9ff8b3fe1581"><div class="ttname"><a href="classsparkplug_1_1PayloadBuilder.html#a0cb1f70cd4587d1da66d9ff8b3fe1581">sparkplug::PayloadBuilder::add_metric_by_alias</a></div><div class="ttdeci">PayloadBuilder &amp; add_metric_by_alias(uint64_t alias, T &amp;&amp;value)</div><div class="ttdoc">Adds a metric by alias only (for NDATA messages).</div><div class="ttdef"><b>Definition</b> <a href="payload__builder_8hpp_source.html#l00255">payload_builder.hpp:255</a></div></div>
+<div class="ttc" id="aclasssparkplug_1_1PayloadBuilder_html_a676ca0d9675d16485b7bbd4f5dbfffa7"><div class="ttname"><a href="classsparkplug_1_1PayloadBuilder.html#a676ca0d9675d16485b7bbd4f5dbfffa7">sparkplug::PayloadBuilder::add_metric_with_alias</a></div><div class="ttdeci">PayloadBuilder &amp; add_metric_with_alias(std::string_view name, uint64_t alias, T &amp;&amp;value)</div><div class="ttdoc">Adds a metric with both name and alias (for NBIRTH messages).</div><div class="ttdef"><b>Definition</b> <a href="payload__builder_8hpp_source.html#l00237">payload_builder.hpp:237</a></div></div>
 <div class="ttc" id="aclasssparkplug_1_1Publisher_html"><div class="ttname"><a href="classsparkplug_1_1Publisher.html">sparkplug::Publisher</a></div><div class="ttdoc">Sparkplug B edge node publisher implementing the complete message lifecycle.</div><div class="ttdef"><b>Definition</b> <a href="publisher_8hpp_source.html#l00058">publisher.hpp:58</a></div></div>
 <div class="ttc" id="astructsparkplug_1_1Publisher_1_1Config_html"><div class="ttname"><a href="structsparkplug_1_1Publisher_1_1Config.html">sparkplug::Publisher::Config</a></div><div class="ttdoc">Configuration parameters for the Sparkplug B publisher.</div><div class="ttdef"><b>Definition</b> <a href="publisher_8hpp_source.html#l00063">publisher.hpp:63</a></div></div>
 </div><!-- fragment --><h2 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
