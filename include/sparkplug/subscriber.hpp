@@ -24,6 +24,24 @@ using MessageCallback =
     std::function<void(const Topic&, const org::eclipse::tahu::protobuf::Payload&)>;
 
 /**
+ * @brief Callback function type for receiving Sparkplug B command messages (NCMD/DCMD).
+ *
+ * Commands are special messages sent from SCADA/Primary Applications to edge nodes
+ * to trigger actions like rebirth, reboot, or custom operations.
+ *
+ * @param topic Parsed command topic (message_type will be NCMD or DCMD)
+ * @param payload Command payload containing metrics with command names and values
+ *
+ * @note Common Node Control commands:
+ *       - "Node Control/Rebirth" (bool): Request node to republish NBIRTH
+ *       - "Node Control/Reboot" (bool): Request node to reboot
+ *       - "Node Control/Next Server" (bool): Switch to backup server
+ *       - "Node Control/Scan Rate" (int64): Change data acquisition rate
+ */
+using CommandCallback =
+    std::function<void(const Topic&, const org::eclipse::tahu::protobuf::Payload&)>;
+
+/**
  * @brief Sparkplug B subscriber for consuming edge node messages with validation.
  *
  * The Subscriber class receives and validates Sparkplug B messages:
@@ -194,6 +212,31 @@ public:
   get_node_state(std::string_view edge_node_id) const;
 
   /**
+   * @brief Sets a callback for receiving command messages (NCMD/DCMD).
+   *
+   * Commands are messages sent from SCADA/Primary Applications to edge nodes
+   * to trigger actions like rebirth, reboot, or custom operations.
+   *
+   * @param callback Function to call when a command is received
+   *
+   * @note The callback is invoked on the MQTT client thread.
+   * @note Common commands: "Node Control/Rebirth", "Node Control/Reboot", etc.
+   *
+   * @par Example Usage
+   * @code
+   * subscriber.set_command_callback([&publisher](const sparkplug::Topic& topic,
+   *                                              const auto& payload) {
+   *   for (const auto& metric : payload.metrics()) {
+   *     if (metric.name() == "Node Control/Rebirth" && metric.boolean_value()) {
+   *       publisher.rebirth();
+   *     }
+   *   }
+   * });
+   * @endcode
+   */
+  void set_command_callback(CommandCallback callback);
+
+  /**
    * @brief Updates node state tracking (internal use).
    *
    * Called automatically from the MQTT callback to update sequence numbers
@@ -212,6 +255,13 @@ public:
    * @note Public for technical reasons (accessed by static MQTT callback).
    */
   MessageCallback callback_;
+
+  /**
+   * @brief User-provided callback for received command messages (NCMD/DCMD).
+   *
+   * @note Public for technical reasons (accessed by static MQTT callback).
+   */
+  CommandCallback command_callback_;
 
 private:
   Config config_;

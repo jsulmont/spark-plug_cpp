@@ -240,6 +240,10 @@ void Subscriber::update_node_state(const Topic& topic,
   validate_message(topic, payload);
 }
 
+void Subscriber::set_command_callback(CommandCallback callback) {
+  command_callback_ = std::move(callback);
+}
+
 static int on_message_arrived(void* context, char* topicName, int topicLen,
                               MQTTAsync_message* message) {
   auto* subscriber = static_cast<Subscriber*>(context);
@@ -298,7 +302,18 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
   // Validate and update state
   subscriber->update_node_state(*topic_result, payload);
 
-  // Call user callback
+  // Call command callback if this is a command message
+  if ((topic_result->message_type == MessageType::NCMD ||
+       topic_result->message_type == MessageType::DCMD) &&
+      subscriber->command_callback_) {
+    try {
+      subscriber->command_callback_(*topic_result, payload);
+    } catch (...) {
+      // Ignore exceptions from user code
+    }
+  }
+
+  // Call general message callback
   try {
     subscriber->callback_(*topic_result, payload);
   } catch (...) {

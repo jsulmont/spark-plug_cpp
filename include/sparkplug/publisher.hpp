@@ -260,6 +260,55 @@ public:
    */
   [[nodiscard]] std::expected<void, std::string> publish_device_death(std::string_view device_id);
 
+  /**
+   * @brief Publishes an NCMD (Node Command) message to another edge node.
+   *
+   * NCMD messages are commands sent from SCADA/Primary Applications or other edge nodes
+   * to request actions like rebirth, reboot, or custom operations.
+   *
+   * @param target_edge_node_id The target edge node identifier
+   * @param payload PayloadBuilder containing command metrics (e.g., "Node Control/Rebirth")
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Common Node Control commands:
+   *       - "Node Control/Rebirth" (bool): Request node to republish NBIRTH
+   *       - "Node Control/Reboot" (bool): Request node to reboot
+   *       - "Node Control/Next Server" (bool): Switch to backup server
+   *       - "Node Control/Scan Rate" (int64): Change data acquisition rate
+   *
+   * @par Example Usage
+   * @code
+   * sparkplug::PayloadBuilder cmd;
+   * cmd.add_metric("Node Control/Rebirth", true);
+   * publisher.publish_node_command("Gateway01", cmd);
+   * @endcode
+   */
+  [[nodiscard]] std::expected<void, std::string>
+  publish_node_command(std::string_view target_edge_node_id, PayloadBuilder& payload);
+
+  /**
+   * @brief Publishes a DCMD (Device Command) message to a device on another edge node.
+   *
+   * DCMD messages are commands sent to devices attached to edge nodes.
+   *
+   * @param target_edge_node_id The target edge node identifier
+   * @param target_device_id The target device identifier
+   * @param payload PayloadBuilder containing command metrics
+   *
+   * @return void on success, error message on failure
+   *
+   * @par Example Usage
+   * @code
+   * sparkplug::PayloadBuilder cmd;
+   * cmd.add_metric("SetPoint", 75.0);
+   * publisher.publish_device_command("Gateway01", "Motor01", cmd);
+   * @endcode
+   */
+  [[nodiscard]] std::expected<void, std::string>
+  publish_device_command(std::string_view target_edge_node_id, std::string_view target_device_id,
+                         PayloadBuilder& payload);
+
 private:
   /**
    * @brief Tracks state for an individual device attached to this edge node.

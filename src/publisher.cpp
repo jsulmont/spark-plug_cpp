@@ -445,4 +445,35 @@ std::expected<void, std::string> Publisher::publish_device_death(std::string_vie
   return {};
 }
 
+std::expected<void, std::string>
+Publisher::publish_node_command(std::string_view target_edge_node_id, PayloadBuilder& payload) {
+  if (!is_connected_) {
+    return std::unexpected("Not connected");
+  }
+
+  Topic topic{.group_id = config_.group_id,
+              .message_type = MessageType::NCMD,
+              .edge_node_id = std::string(target_edge_node_id),
+              .device_id = ""};
+
+  auto payload_data = payload.build();
+  return publish_message(topic, payload_data);
+}
+
+std::expected<void, std::string>
+Publisher::publish_device_command(std::string_view target_edge_node_id,
+                                  std::string_view target_device_id, PayloadBuilder& payload) {
+  if (!is_connected_) {
+    return std::unexpected("Not connected");
+  }
+
+  Topic topic{.group_id = config_.group_id,
+              .message_type = MessageType::DCMD,
+              .edge_node_id = std::string(target_edge_node_id),
+              .device_id = std::string(target_device_id)};
+
+  auto payload_data = payload.build();
+  return publish_message(topic, payload_data);
+}
+
 } // namespace sparkplug

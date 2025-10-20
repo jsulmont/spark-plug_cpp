@@ -25,6 +25,11 @@ add_executable(test_device_apis test_device_apis.cpp)
 target_link_libraries(test_device_apis PRIVATE sparkplug_cpp)
 add_test(NAME DeviceApisTest COMMAND test_device_apis)
 
+# Command handling tests (NCMD/DCMD)
+add_executable(test_command_handling test_command_handling.cpp)
+target_link_libraries(test_command_handling PRIVATE sparkplug_cpp)
+add_test(NAME CommandHandlingTest COMMAND test_command_handling)
+
 # C API tests
 add_executable(test_c_api test_c_api.c)
 target_link_libraries(test_c_api PRIVATE sparkplug_c)
