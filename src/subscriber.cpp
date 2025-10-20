@@ -470,7 +470,8 @@ std::expected<void, std::string> Subscriber::subscribe_state(std::string_view ho
 
 std::optional<std::reference_wrapper<const Subscriber::NodeState>>
 Subscriber::get_node_state(std::string_view edge_node_id) const {
-  auto it = node_states_.find(std::string(edge_node_id));
+  // Heterogeneous lookup - no temporary string created
+  auto it = node_states_.find(edge_node_id);
   if (it != node_states_.end()) {
     return std::cref(it->second);
   }

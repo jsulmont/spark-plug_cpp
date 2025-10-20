@@ -14,6 +14,7 @@ namespace {
 using namespace std::string_view_literals;
 constexpr auto NAMESPACE = "spBv1.0"sv;
 
+// Constexpr for potential compile-time evaluation when possible
 constexpr std::string_view message_type_to_string(MessageType type) {
   switch (type) {
   case MessageType::NBIRTH:
@@ -76,33 +77,62 @@ std::string Topic::to_string() const {
 }
 
 std::expected<Topic, std::string> Topic::parse(std::string_view topic_str) {
-  auto parts = topic_str | std::views::split('/') |
-               std::views::transform([](auto&& rng) { return std::string_view(rng); });
-  auto elements = parts | std::ranges::to<std::vector>();
-  if (elements.size() < 2) {
+  // Parse without allocating vector - use iterators directly
+  auto parts =
+      topic_str | std::views::split('/') | std::views::transform([](auto&& rng) {
+        return std::string_view(rng.begin(), std::ranges::distance(rng.begin(), rng.end()));
+      });
+
+  auto it = parts.begin();
+  auto end = parts.end();
+
+  if (it == end) {
     return std::unexpected("Invalid topic format");
   }
 
-  if (elements[0] == "STATE") {
+  std::string_view part0 = *it++;
+  if (it == end) {
+    return std::unexpected("Invalid topic format");
+  }
+  std::string_view part1 = *it++;
+
+  // Check for STATE message
+  if (part0 == "STATE") {
     return Topic{.group_id = "",
                  .message_type = MessageType::STATE,
-                 .edge_node_id = std::string(elements[1]),
+                 .edge_node_id = std::string(part1),
                  .device_id = ""};
   }
 
-  if (elements.size() < 4 || elements[0] != NAMESPACE) {
+  // Sparkplug B topic: spBv1.0/{group_id}/{message_type}/{edge_node_id}[/{device_id}]
+  if (part0 != NAMESPACE) {
     return std::unexpected("Invalid Sparkplug B topic");
   }
 
-  auto msg_type = parse_message_type(elements[2]);
+  if (it == end) {
+    return std::unexpected("Invalid Sparkplug B topic");
+  }
+  std::string_view part2 = *it++;
+
+  if (it == end) {
+    return std::unexpected("Invalid Sparkplug B topic");
+  }
+  std::string_view part3 = *it++;
+
+  auto msg_type = parse_message_type(part2);
   if (!msg_type) {
     return std::unexpected(msg_type.error());
   }
 
-  return Topic{.group_id = std::string(elements[1]),
+  std::string device_id;
+  if (it != end) {
+    device_id = std::string(*it);
+  }
+
+  return Topic{.group_id = std::string(part1),
                .message_type = *msg_type,
-               .edge_node_id = std::string(elements[3]),
-               .device_id = elements.size() > 4 ? std::string(elements[4]) : ""};
+               .edge_node_id = std::string(part3),
+               .device_id = std::move(device_id)};
 }
 
 } // namespace sparkplug

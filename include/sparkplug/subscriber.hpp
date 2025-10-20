@@ -267,8 +267,23 @@ private:
   Config config_;
   MQTTAsyncHandle client_;
 
-  // Track state of each edge node for validation
-  std::unordered_map<std::string, NodeState> node_states_;
+  // Hash and equality functors that support heterogeneous lookup (string_view)
+  struct StringHash {
+    using is_transparent = void;
+    [[nodiscard]] size_t operator()(std::string_view sv) const noexcept {
+      return std::hash<std::string_view>{}(sv);
+    }
+  };
+
+  struct StringEqual {
+    using is_transparent = void;
+    [[nodiscard]] bool operator()(std::string_view lhs, std::string_view rhs) const noexcept {
+      return lhs == rhs;
+    }
+  };
+
+  // Track state of each edge node for validation (with heterogeneous lookup)
+  std::unordered_map<std::string, NodeState, StringHash, StringEqual> node_states_;
 
   bool validate_message(const Topic& topic, const org::eclipse::tahu::protobuf::Payload& payload);
 };

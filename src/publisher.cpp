@@ -374,7 +374,7 @@ std::expected<void, std::string> Publisher::publish_device_birth(std::string_vie
     return result;
   }
 
-  // Track device state
+  // Track device state (heterogeneous lookup - no temporary string created)
   auto& device_state = device_states_[std::string(device_id)];
   device_state.seq_num = 0;
   device_state.last_birth_payload = payload_data;
@@ -389,8 +389,8 @@ std::expected<void, std::string> Publisher::publish_device_data(std::string_view
     return std::unexpected("Not connected");
   }
 
-  std::string device_id_str(device_id);
-  auto it = device_states_.find(device_id_str);
+  // Heterogeneous lookup - no temporary string created
+  auto it = device_states_.find(device_id);
   if (it == device_states_.end() || !it->second.is_online) {
     return std::unexpected(
         std::format("Must publish DBIRTH for device '{}' before DDATA", device_id));
@@ -408,7 +408,7 @@ std::expected<void, std::string> Publisher::publish_device_data(std::string_view
   Topic topic{.group_id = config_.group_id,
               .message_type = MessageType::DDATA,
               .edge_node_id = config_.edge_node_id,
-              .device_id = device_id_str};
+              .device_id = std::string(device_id)};
 
   auto payload_data = payload.build();
   return publish_message(topic, payload_data);
@@ -419,8 +419,8 @@ std::expected<void, std::string> Publisher::publish_device_death(std::string_vie
     return std::unexpected("Not connected");
   }
 
-  std::string device_id_str(device_id);
-  auto it = device_states_.find(device_id_str);
+  // Heterogeneous lookup - no temporary string created
+  auto it = device_states_.find(device_id);
   if (it == device_states_.end()) {
     return std::unexpected(std::format("Unknown device: '{}'", device_id));
   }
@@ -431,7 +431,7 @@ std::expected<void, std::string> Publisher::publish_device_death(std::string_vie
   Topic topic{.group_id = config_.group_id,
               .message_type = MessageType::DDEATH,
               .edge_node_id = config_.edge_node_id,
-              .device_id = device_id_str};
+              .device_id = std::string(device_id)};
 
   auto payload_data = death_payload.build();
   auto result = publish_message(topic, payload_data);

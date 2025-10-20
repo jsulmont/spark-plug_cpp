@@ -330,8 +330,23 @@ private:
   // Store last NBIRTH for rebirth command
   std::vector<uint8_t> last_birth_payload_;
 
-  // Track state of attached devices (device_id -> state)
-  std::unordered_map<std::string, DeviceState> device_states_;
+  // Hash and equality functors that support heterogeneous lookup (string_view)
+  struct StringHash {
+    using is_transparent = void;
+    [[nodiscard]] size_t operator()(std::string_view sv) const noexcept {
+      return std::hash<std::string_view>{}(sv);
+    }
+  };
+
+  struct StringEqual {
+    using is_transparent = void;
+    [[nodiscard]] bool operator()(std::string_view lhs, std::string_view rhs) const noexcept {
+      return lhs == rhs;
+    }
+  };
+
+  // Track state of attached devices (device_id -> state, with heterogeneous lookup)
+  std::unordered_map<std::string, DeviceState, StringHash, StringEqual> device_states_;
 
   bool is_connected_{false};
 
