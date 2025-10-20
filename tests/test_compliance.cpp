@@ -572,8 +572,9 @@ void test_device_sequence_independent() {
   // Node seq should be 1, device seq should be 1
   bool passed = got_ddata && ddata_seq == 1 && pub.get_seq() == 1;
   report_test("Device sequence independent", passed,
-              !got_ddata ? "No DDATA received" : std::format("Node seq={}, Device seq={} (both should be 1)",
-                                                             pub.get_seq(), ddata_seq.load()));
+              !got_ddata ? "No DDATA received"
+                         : std::format("Node seq={}, Device seq={} (both should be 1)",
+                                       pub.get_seq(), ddata_seq.load()));
 
   (void)pub.disconnect();
   (void)sub.disconnect();
@@ -597,9 +598,8 @@ void test_ncmd_publishing() {
     }
   };
 
-  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
-                                           .client_id = "test_ncmd_sub",
-                                           .group_id = "TestGroup"};
+  sparkplug::Subscriber::Config sub_config{
+      .broker_url = "tcp://localhost:1883", .client_id = "test_ncmd_sub", .group_id = "TestGroup"};
 
   sparkplug::Subscriber sub(std::move(sub_config), callback);
   if (!sub.connect() || !sub.subscribe_all()) {
@@ -663,9 +663,8 @@ void test_dcmd_publishing() {
     }
   };
 
-  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
-                                           .client_id = "test_dcmd_sub",
-                                           .group_id = "TestGroup"};
+  sparkplug::Subscriber::Config sub_config{
+      .broker_url = "tcp://localhost:1883", .client_id = "test_dcmd_sub", .group_id = "TestGroup"};
 
   sparkplug::Subscriber sub(std::move(sub_config), callback);
   if (!sub.connect() || !sub.subscribe_all()) {
@@ -769,7 +768,7 @@ void test_command_callback() {
 
   bool passed = command_callback_invoked && general_callback_invoked;
   report_test("Command callback invoked", passed,
-              !command_callback_invoked ? "Command callback not invoked"
+              !command_callback_invoked   ? "Command callback not invoked"
               : !general_callback_invoked ? "General callback not invoked"
                                           : "");
 
