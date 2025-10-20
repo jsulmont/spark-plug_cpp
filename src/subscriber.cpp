@@ -2,6 +2,7 @@
 #include "sparkplug/subscriber.hpp"
 
 #include <format>
+#include <future>
 #include <iostream>
 #include <thread>
 #include <utility>
@@ -14,9 +15,37 @@ namespace {
 // Timeout and connection constants
 constexpr int CONNECTION_TIMEOUT_MS = 5000;
 constexpr int DISCONNECT_TIMEOUT_MS = 10000;
-constexpr int POLL_INTERVAL_MS = 100;
 constexpr uint64_t SEQ_NUMBER_MAX = 256;
 constexpr int DEFAULT_KEEP_ALIVE_INTERVAL = 60;
+
+// Callback for successful connection
+void on_connect_success(void* context, MQTTAsync_successData* response) {
+  (void)response;
+  auto* promise = static_cast<std::promise<void>*>(context);
+  promise->set_value();
+}
+
+// Callback for failed connection
+void on_connect_failure(void* context, MQTTAsync_failureData* response) {
+  auto* promise = static_cast<std::promise<void>*>(context);
+  auto error = std::format("Connection failed: code={}", response ? response->code : -1);
+  promise->set_exception(std::make_exception_ptr(std::runtime_error(error)));
+}
+
+// Callback for successful disconnection
+void on_disconnect_success(void* context, MQTTAsync_successData* response) {
+  (void)response;
+  auto* promise = static_cast<std::promise<void>*>(context);
+  promise->set_value();
+}
+
+// Callback for failed disconnection
+void on_disconnect_failure(void* context, MQTTAsync_failureData* response) {
+  auto* promise = static_cast<std::promise<void>*>(context);
+  auto error = std::format("Disconnect failed: code={}", response ? response->code : -1);
+  promise->set_exception(std::make_exception_ptr(std::runtime_error(error)));
+}
+
 } // namespace
 
 // Fix initialization order to match declaration
@@ -251,23 +280,33 @@ std::expected<void, std::string> Subscriber::connect() {
     return std::unexpected(std::format("Failed to set callbacks: {}", rc));
   }
 
+  // Use promise/future for async completion instead of polling
+  std::promise<void> connect_promise;
+  auto connect_future = connect_promise.get_future();
+
   MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
   conn_opts.keepAliveInterval = DEFAULT_KEEP_ALIVE_INTERVAL;
   conn_opts.cleansession = config_.clean_session;
+  conn_opts.context = &connect_promise;
+  conn_opts.onSuccess = on_connect_success;
+  conn_opts.onFailure = on_connect_failure;
 
   rc = MQTTAsync_connect(client_.get(), &conn_opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to connect: {}", rc));
   }
 
-  // Wait for connection
-  int elapsed_ms = 0;
-  while (MQTTAsync_isConnected(client_.get()) == 0) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
-    elapsed_ms += POLL_INTERVAL_MS;
-    if (elapsed_ms >= CONNECTION_TIMEOUT_MS) {
-      return std::unexpected("Connection timeout");
-    }
+  // Wait for connection with timeout (no busy-wait polling)
+  auto status = connect_future.wait_for(std::chrono::milliseconds(CONNECTION_TIMEOUT_MS));
+  if (status == std::future_status::timeout) {
+    return std::unexpected("Connection timeout");
+  }
+
+  // Retrieve result (may throw exception from callback)
+  try {
+    connect_future.get();
+  } catch (const std::exception& e) {
+    return std::unexpected(e.what());
   }
 
   return {};
@@ -278,12 +317,33 @@ std::expected<void, std::string> Subscriber::disconnect() {
     return std::unexpected("Not connected");
   }
 
+  // Use promise/future for async completion instead of polling
+  std::promise<void> disconnect_promise;
+  auto disconnect_future = disconnect_promise.get_future();
+
   MQTTAsync_disconnectOptions opts = MQTTAsync_disconnectOptions_initializer;
   opts.timeout = DISCONNECT_TIMEOUT_MS;
+  opts.context = &disconnect_promise;
+  opts.onSuccess = on_disconnect_success;
+  opts.onFailure = on_disconnect_failure;
 
   int rc = MQTTAsync_disconnect(client_.get(), &opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to disconnect: {}", rc));
+  }
+
+  // Wait for disconnection with timeout (no busy-wait polling)
+  auto status = disconnect_future.wait_for(std::chrono::milliseconds(DISCONNECT_TIMEOUT_MS));
+  if (status == std::future_status::timeout) {
+    // Timeout is not fatal for disconnect - just continue
+    return {};
+  }
+
+  // Retrieve result (may throw exception from callback)
+  try {
+    disconnect_future.get();
+  } catch (const std::exception&) {
+    // Ignore disconnect failures - we're disconnecting anyway
   }
 
   return {};
