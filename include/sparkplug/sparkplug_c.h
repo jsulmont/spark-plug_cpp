@@ -315,6 +315,20 @@ int sparkplug_subscriber_subscribe_node(sparkplug_subscriber_t* sub, const char*
  */
 int sparkplug_subscriber_subscribe_state(sparkplug_subscriber_t* sub, const char* host_id);
 
+/**
+ * @brief Sets a callback for receiving command messages (NCMD/DCMD).
+ *
+ * @param sub Subscriber handle
+ * @param callback Callback function to invoke for command messages
+ * @param user_data User-provided context pointer passed to callback
+ *
+ * @note This callback is invoked in addition to the general message callback.
+ * @note Set callback to NULL to disable command callback.
+ */
+void sparkplug_subscriber_set_command_callback(sparkplug_subscriber_t* sub,
+                                               sparkplug_command_callback_t callback,
+                                               void* user_data);
+
 /* ============================================================================
  * Payload Builder API
  * ========================================================================= */

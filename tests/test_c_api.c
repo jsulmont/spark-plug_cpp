@@ -378,6 +378,290 @@ void test_subscriber_subscribe_all(void) {
   PASS();
 }
 
+/* Test publisher device birth */
+void test_publisher_device_birth(void) {
+  TEST("publisher publish DBIRTH");
+
+  sparkplug_publisher_t* pub = sparkplug_publisher_create("tcp://localhost:1883", "test_c_dbirth",
+                                                          "TestGroup", "TestNode");
+  assert(pub != NULL);
+
+  int result = sparkplug_publisher_connect(pub);
+  if (result != 0) {
+    sparkplug_publisher_destroy(pub);
+    FAIL("failed to connect");
+    return;
+  }
+
+  usleep(100000);
+
+  /* Publish NBIRTH first (required before DBIRTH) */
+  sparkplug_payload_t* nbirth = sparkplug_payload_create();
+  sparkplug_payload_add_int32_with_alias(nbirth, "NodeMetric", 1, 100);
+
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(nbirth, buffer, sizeof(buffer));
+  sparkplug_publisher_publish_birth(pub, buffer, size);
+  sparkplug_payload_destroy(nbirth);
+
+  usleep(100000);
+
+  /* Publish DBIRTH for device */
+  sparkplug_payload_t* dbirth = sparkplug_payload_create();
+  sparkplug_payload_add_double_with_alias(dbirth, "Temperature", 1, 20.5);
+  sparkplug_payload_add_double_with_alias(dbirth, "Humidity", 2, 65.0);
+
+  size = sparkplug_payload_serialize(dbirth, buffer, sizeof(buffer));
+  result = sparkplug_publisher_publish_device_birth(pub, "Sensor01", buffer, size);
+  assert(result == 0);
+
+  sparkplug_payload_destroy(dbirth);
+  sparkplug_publisher_disconnect(pub);
+  sparkplug_publisher_destroy(pub);
+
+  PASS();
+}
+
+/* Test publisher device data */
+void test_publisher_device_data(void) {
+  TEST("publisher publish DDATA");
+
+  sparkplug_publisher_t* pub = sparkplug_publisher_create("tcp://localhost:1883", "test_c_ddata",
+                                                          "TestGroup", "TestNode");
+  assert(pub != NULL);
+
+  int result = sparkplug_publisher_connect(pub);
+  if (result != 0) {
+    sparkplug_publisher_destroy(pub);
+    FAIL("failed to connect");
+    return;
+  }
+
+  usleep(100000);
+
+  /* Publish NBIRTH */
+  sparkplug_payload_t* nbirth = sparkplug_payload_create();
+  sparkplug_payload_add_int32(nbirth, "NodeMetric", 100);
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(nbirth, buffer, sizeof(buffer));
+  sparkplug_publisher_publish_birth(pub, buffer, size);
+  sparkplug_payload_destroy(nbirth);
+
+  usleep(100000);
+
+  /* Publish DBIRTH */
+  sparkplug_payload_t* dbirth = sparkplug_payload_create();
+  sparkplug_payload_add_double_with_alias(dbirth, "Temperature", 1, 20.5);
+  size = sparkplug_payload_serialize(dbirth, buffer, sizeof(buffer));
+  sparkplug_publisher_publish_device_birth(pub, "Sensor01", buffer, size);
+  sparkplug_payload_destroy(dbirth);
+
+  usleep(100000);
+
+  /* Publish DDATA */
+  sparkplug_payload_t* ddata = sparkplug_payload_create();
+  sparkplug_payload_add_double_by_alias(ddata, 1, 21.5);
+  size = sparkplug_payload_serialize(ddata, buffer, sizeof(buffer));
+  result = sparkplug_publisher_publish_device_data(pub, "Sensor01", buffer, size);
+  assert(result == 0);
+
+  sparkplug_payload_destroy(ddata);
+  sparkplug_publisher_disconnect(pub);
+  sparkplug_publisher_destroy(pub);
+
+  PASS();
+}
+
+/* Test publisher device death */
+void test_publisher_device_death(void) {
+  TEST("publisher publish DDEATH");
+
+  sparkplug_publisher_t* pub = sparkplug_publisher_create("tcp://localhost:1883", "test_c_ddeath",
+                                                          "TestGroup", "TestNode");
+  assert(pub != NULL);
+
+  int result = sparkplug_publisher_connect(pub);
+  if (result != 0) {
+    sparkplug_publisher_destroy(pub);
+    FAIL("failed to connect");
+    return;
+  }
+
+  usleep(100000);
+
+  /* Publish NBIRTH */
+  sparkplug_payload_t* nbirth = sparkplug_payload_create();
+  sparkplug_payload_add_int32(nbirth, "NodeMetric", 100);
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(nbirth, buffer, sizeof(buffer));
+  sparkplug_publisher_publish_birth(pub, buffer, size);
+  sparkplug_payload_destroy(nbirth);
+
+  usleep(100000);
+
+  /* Publish DBIRTH */
+  sparkplug_payload_t* dbirth = sparkplug_payload_create();
+  sparkplug_payload_add_double(dbirth, "Temperature", 20.5);
+  size = sparkplug_payload_serialize(dbirth, buffer, sizeof(buffer));
+  sparkplug_publisher_publish_device_birth(pub, "Sensor01", buffer, size);
+  sparkplug_payload_destroy(dbirth);
+
+  usleep(100000);
+
+  /* Publish DDEATH */
+  result = sparkplug_publisher_publish_device_death(pub, "Sensor01");
+  assert(result == 0);
+
+  sparkplug_publisher_disconnect(pub);
+  sparkplug_publisher_destroy(pub);
+
+  PASS();
+}
+
+/* Test publisher node command */
+void test_publisher_node_command(void) {
+  TEST("publisher publish NCMD");
+
+  sparkplug_publisher_t* pub = sparkplug_publisher_create("tcp://localhost:1883", "test_c_ncmd",
+                                                          "TestGroup", "HostNode");
+  assert(pub != NULL);
+
+  int result = sparkplug_publisher_connect(pub);
+  if (result != 0) {
+    sparkplug_publisher_destroy(pub);
+    FAIL("failed to connect");
+    return;
+  }
+
+  usleep(100000);
+
+  /* Publish NCMD to target node */
+  sparkplug_payload_t* cmd = sparkplug_payload_create();
+  sparkplug_payload_add_bool(cmd, "Node Control/Rebirth", true);
+
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(cmd, buffer, sizeof(buffer));
+  result = sparkplug_publisher_publish_node_command(pub, "TargetNode", buffer, size);
+  assert(result == 0);
+
+  sparkplug_payload_destroy(cmd);
+  sparkplug_publisher_disconnect(pub);
+  sparkplug_publisher_destroy(pub);
+
+  PASS();
+}
+
+/* Test publisher device command */
+void test_publisher_device_command(void) {
+  TEST("publisher publish DCMD");
+
+  sparkplug_publisher_t* pub = sparkplug_publisher_create("tcp://localhost:1883", "test_c_dcmd",
+                                                          "TestGroup", "HostNode");
+  assert(pub != NULL);
+
+  int result = sparkplug_publisher_connect(pub);
+  if (result != 0) {
+    sparkplug_publisher_destroy(pub);
+    FAIL("failed to connect");
+    return;
+  }
+
+  usleep(100000);
+
+  /* Publish DCMD to target device */
+  sparkplug_payload_t* cmd = sparkplug_payload_create();
+  sparkplug_payload_add_double(cmd, "SetPoint", 75.0);
+
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(cmd, buffer, sizeof(buffer));
+  result = sparkplug_publisher_publish_device_command(pub, "TargetNode", "Motor01", buffer, size);
+  assert(result == 0);
+
+  sparkplug_payload_destroy(cmd);
+  sparkplug_publisher_disconnect(pub);
+  sparkplug_publisher_destroy(pub);
+
+  PASS();
+}
+
+/* Command callback for testing */
+static int command_received = 0;
+static void test_command_callback(const char* topic, const uint8_t* data, size_t len, void* ctx) {
+  (void)topic;
+  (void)data;
+  (void)len;
+  (void)ctx;
+  command_received = 1;
+}
+
+/* Test subscriber command callback */
+void test_subscriber_command_callback(void) {
+  TEST("subscriber command callback");
+
+  command_received = 0;
+
+  /* Create publisher to send command */
+  sparkplug_publisher_t* pub = sparkplug_publisher_create(
+      "tcp://localhost:1883", "test_c_cmd_pub", "TestGroup", "HostNode");
+  assert(pub != NULL);
+
+  /* Create subscriber to receive command */
+  sparkplug_subscriber_t* sub = sparkplug_subscriber_create(
+      "tcp://localhost:1883", "test_c_cmd_sub", "TestGroup", dummy_callback, NULL);
+  assert(sub != NULL);
+
+  /* Set command callback */
+  sparkplug_subscriber_set_command_callback(sub, test_command_callback, NULL);
+
+  int result = sparkplug_publisher_connect(pub);
+  if (result != 0) {
+    sparkplug_publisher_destroy(pub);
+    sparkplug_subscriber_destroy(sub);
+    FAIL("publisher failed to connect");
+    return;
+  }
+
+  result = sparkplug_subscriber_connect(sub);
+  if (result != 0) {
+    sparkplug_publisher_destroy(pub);
+    sparkplug_subscriber_destroy(sub);
+    FAIL("subscriber failed to connect");
+    return;
+  }
+
+  usleep(100000);
+
+  /* Subscribe to commands */
+  result = sparkplug_subscriber_subscribe_all(sub);
+  assert(result == 0);
+
+  usleep(200000);
+
+  /* Send NCMD */
+  sparkplug_payload_t* cmd = sparkplug_payload_create();
+  sparkplug_payload_add_bool(cmd, "Node Control/Rebirth", true);
+
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(cmd, buffer, sizeof(buffer));
+  sparkplug_publisher_publish_node_command(pub, "TestNode", buffer, size);
+  sparkplug_payload_destroy(cmd);
+
+  /* Wait for command to arrive */
+  usleep(500000);
+
+  sparkplug_subscriber_disconnect(sub);
+  sparkplug_publisher_disconnect(pub);
+  sparkplug_subscriber_destroy(sub);
+  sparkplug_publisher_destroy(pub);
+
+  if (!command_received) {
+    FAIL("command callback not invoked");
+    return;
+  }
+
+  PASS();
+}
+
 int main(void) {
   printf("=== C API Unit Tests ===\n\n");
 
@@ -400,6 +684,16 @@ int main(void) {
   test_subscriber_create_destroy();
   test_subscriber_connect();
   test_subscriber_subscribe_all();
+
+  /* Device-level API tests (require MQTT broker) */
+  test_publisher_device_birth();
+  test_publisher_device_data();
+  test_publisher_device_death();
+
+  /* Command API tests (require MQTT broker) */
+  test_publisher_node_command();
+  test_publisher_device_command();
+  test_subscriber_command_callback();
 
   printf("\n=== Test Summary ===\n");
   printf("Passed: %d\n", tests_passed);
