@@ -349,4 +349,100 @@ std::expected<void, std::string> Publisher::rebirth() {
   return {};
 }
 
+std::expected<void, std::string> Publisher::publish_device_birth(std::string_view device_id,
+                                                                 PayloadBuilder& payload) {
+  if (!is_connected_) {
+    return std::unexpected("Not connected");
+  }
+
+  if (last_birth_payload_.empty()) {
+    return std::unexpected("Must publish NBIRTH before DBIRTH");
+  }
+
+  // Device sequence starts at 0 for DBIRTH
+  payload.set_seq(0);
+
+  Topic topic{.group_id = config_.group_id,
+              .message_type = MessageType::DBIRTH,
+              .edge_node_id = config_.edge_node_id,
+              .device_id = std::string(device_id)};
+
+  auto payload_data = payload.build();
+
+  auto result = publish_message(topic, payload_data);
+  if (!result) {
+    return result;
+  }
+
+  // Track device state
+  auto& device_state = device_states_[std::string(device_id)];
+  device_state.seq_num = 0;
+  device_state.last_birth_payload = payload_data;
+  device_state.is_online = true;
+
+  return {};
+}
+
+std::expected<void, std::string> Publisher::publish_device_data(std::string_view device_id,
+                                                                PayloadBuilder& payload) {
+  if (!is_connected_) {
+    return std::unexpected("Not connected");
+  }
+
+  std::string device_id_str(device_id);
+  auto it = device_states_.find(device_id_str);
+  if (it == device_states_.end() || !it->second.is_online) {
+    return std::unexpected(
+        std::format("Must publish DBIRTH for device '{}' before DDATA", device_id));
+  }
+
+  auto& device_state = it->second;
+
+  // Increment device sequence (0-255, wraps at 256)
+  device_state.seq_num = (device_state.seq_num + 1) % SEQ_NUMBER_MAX;
+
+  if (!payload.has_seq()) {
+    payload.set_seq(device_state.seq_num);
+  }
+
+  Topic topic{.group_id = config_.group_id,
+              .message_type = MessageType::DDATA,
+              .edge_node_id = config_.edge_node_id,
+              .device_id = device_id_str};
+
+  auto payload_data = payload.build();
+  return publish_message(topic, payload_data);
+}
+
+std::expected<void, std::string> Publisher::publish_device_death(std::string_view device_id) {
+  if (!is_connected_) {
+    return std::unexpected("Not connected");
+  }
+
+  std::string device_id_str(device_id);
+  auto it = device_states_.find(device_id_str);
+  if (it == device_states_.end()) {
+    return std::unexpected(std::format("Unknown device: '{}'", device_id));
+  }
+
+  // DDEATH has empty payload (or optionally just timestamp)
+  PayloadBuilder death_payload;
+
+  Topic topic{.group_id = config_.group_id,
+              .message_type = MessageType::DDEATH,
+              .edge_node_id = config_.edge_node_id,
+              .device_id = device_id_str};
+
+  auto payload_data = death_payload.build();
+  auto result = publish_message(topic, payload_data);
+  if (!result) {
+    return result;
+  }
+
+  // Mark device as offline
+  it->second.is_online = false;
+
+  return {};
+}
+
 } // namespace sparkplug

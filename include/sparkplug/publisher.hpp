@@ -9,6 +9,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace sparkplug {
@@ -207,10 +208,71 @@ public:
     return bd_seq_num_;
   }
 
+  /**
+   * @brief Publishes a DBIRTH (Device Birth) message.
+   *
+   * The DBIRTH message declares a device attached to this edge node.
+   * It must be published after NBIRTH and declares all device metrics with aliases.
+   *
+   * @param device_id The device identifier (e.g., "Sensor01", "Motor02")
+   * @param payload PayloadBuilder containing device metrics with names and aliases
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Device sequence starts at 0 for DBIRTH, then increments for DDATA.
+   * @note Must call publish_birth() before publishing any device births.
+   *
+   * @see publish_device_data() for subsequent device updates
+   * @see publish_device_death() for device disconnection
+   */
+  [[nodiscard]] std::expected<void, std::string> publish_device_birth(std::string_view device_id,
+                                                                      PayloadBuilder& payload);
+
+  /**
+   * @brief Publishes a DDATA (Device Data) message.
+   *
+   * DDATA messages report device metric changes by exception. Only include metrics
+   * that have changed since the last DDATA message. Uses aliases for bandwidth efficiency.
+   *
+   * @param device_id The device identifier
+   * @param payload PayloadBuilder containing changed metrics (by alias only)
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Sequence number is automatically incremented per device (0-255, wraps at 256).
+   * @note Must call publish_device_birth() before the first publish_device_data().
+   *
+   * @see publish_device_birth() for establishing aliases
+   */
+  [[nodiscard]] std::expected<void, std::string> publish_device_data(std::string_view device_id,
+                                                                     PayloadBuilder& payload);
+
+  /**
+   * @brief Publishes a DDEATH (Device Death) message.
+   *
+   * Explicitly sends a device death message to indicate device disconnection.
+   *
+   * @param device_id The device identifier
+   *
+   * @return void on success, error message on failure
+   *
+   * @note After DDEATH, publish_device_birth() must be called again before DDATA.
+   */
+  [[nodiscard]] std::expected<void, std::string> publish_device_death(std::string_view device_id);
+
 private:
+  /**
+   * @brief Tracks state for an individual device attached to this edge node.
+   */
+  struct DeviceState {
+    uint64_t seq_num{0};                     // Device message sequence (0-255)
+    std::vector<uint8_t> last_birth_payload; // Last DBIRTH for rebirth
+    bool is_online{false};                   // True if DBIRTH sent and device online
+  };
+
   Config config_;
   MQTTAsyncHandle client_;
-  uint64_t seq_num_{0};    // Message sequence (0-255)
+  uint64_t seq_num_{0};    // Node message sequence (0-255)
   uint64_t bd_seq_num_{0}; // Birth/Death sequence
 
   // Store the NDEATH payload for the MQTT Will
@@ -218,6 +280,9 @@ private:
 
   // Store last NBIRTH for rebirth command
   std::vector<uint8_t> last_birth_payload_;
+
+  // Track state of attached devices (device_id -> state)
+  std::unordered_map<std::string, DeviceState> device_states_;
 
   bool is_connected_{false};
 

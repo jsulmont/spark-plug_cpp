@@ -20,6 +20,11 @@ add_executable(test_error_handling test_error_handling.cpp)
 target_link_libraries(test_error_handling PRIVATE sparkplug_cpp)
 add_test(NAME ErrorHandlingTest COMMAND test_error_handling)
 
+# Device-level API tests (DBIRTH/DDATA/DDEATH)
+add_executable(test_device_apis test_device_apis.cpp)
+target_link_libraries(test_device_apis PRIVATE sparkplug_cpp)
+add_test(NAME DeviceApisTest COMMAND test_device_apis)
+
 # C API tests
 add_executable(test_c_api test_c_api.c)
 target_link_libraries(test_c_api PRIVATE sparkplug_c)

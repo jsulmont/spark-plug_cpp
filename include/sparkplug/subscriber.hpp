@@ -78,16 +78,26 @@ public:
   };
 
   /**
+   * @brief Tracks the state of a device attached to an edge node.
+   */
+  struct DeviceState {
+    bool is_online{false};      ///< True if DBIRTH received and device is online
+    uint64_t last_seq{255};     ///< Last received device sequence number
+    bool birth_received{false}; ///< True if DBIRTH has been received
+  };
+
+  /**
    * @brief Tracks the state of an individual edge node.
    *
    * Used internally for sequence validation and monitoring.
    */
   struct NodeState {
     bool is_online{false};       ///< True if NBIRTH received and node is online
-    uint64_t last_seq{255};      ///< Last received sequence number (starts at 255)
+    uint64_t last_seq{255};      ///< Last received node sequence number (starts at 255)
     uint64_t bd_seq{0};          ///< Current birth/death sequence number
     uint64_t birth_timestamp{0}; ///< Timestamp of last NBIRTH
     bool birth_received{false};  ///< True if NBIRTH has been received
+    std::unordered_map<std::string, DeviceState> devices; ///< Attached devices (device_id -> state)
   };
 
   /**

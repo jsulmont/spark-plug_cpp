@@ -135,17 +135,14 @@ bool Subscriber::validate_message(const Topic& topic,
     return true;
   }
 
-  case MessageType::NDATA:
-  case MessageType::DDATA: {
-    // Cannot receive DATA before BIRTH
+  case MessageType::NDATA: {
+    // Cannot receive NDATA before NBIRTH
     if (!state.birth_received) {
-      std::cerr << "WARNING: Received "
-                << (topic.message_type == MessageType::NDATA ? "NDATA" : "DDATA") << " for "
-                << node_id << " before NBIRTH\n";
+      std::cerr << "WARNING: Received NDATA for " << node_id << " before NBIRTH\n";
       return false;
     }
 
-    // Validate sequence number
+    // Validate node sequence number
     if (payload.has_seq()) {
       uint64_t seq = payload.seq();
       uint64_t expected_seq = (state.last_seq + 1) % SEQ_NUMBER_MAX;
@@ -163,15 +160,71 @@ bool Subscriber::validate_message(const Topic& topic,
   }
 
   case MessageType::DBIRTH: {
-    // DBIRTH can have any seq > 0
+    // DBIRTH must come after NBIRTH
     if (!state.birth_received) {
       std::cerr << "WARNING: Received DBIRTH for device on " << node_id << " before node NBIRTH\n";
       return false;
     }
+
+    // DBIRTH sequence should be 0
+    if (payload.has_seq() && payload.seq() != 0) {
+      std::cerr << "WARNING: DBIRTH for device '" << topic.device_id << "' on " << node_id
+                << " has invalid seq: " << payload.seq() << " (expected 0)\n";
+    }
+
+    // Track device state
+    auto& device_state = state.devices[topic.device_id];
+    device_state.is_online = true;
+    device_state.birth_received = true;
+    device_state.last_seq = 0;
+
     return true;
   }
 
-  case MessageType::DDEATH:
+  case MessageType::DDATA: {
+    // Cannot receive DDATA before NBIRTH
+    if (!state.birth_received) {
+      std::cerr << "WARNING: Received DDATA for device '" << topic.device_id << "' on " << node_id
+                << " before node NBIRTH\n";
+      return false;
+    }
+
+    // Check if device exists and has received DBIRTH
+    auto device_it = state.devices.find(topic.device_id);
+    if (device_it == state.devices.end() || !device_it->second.birth_received) {
+      std::cerr << "WARNING: Received DDATA for device '" << topic.device_id << "' on " << node_id
+                << " before DBIRTH\n";
+      return false;
+    }
+
+    auto& device_state = device_it->second;
+
+    // Validate device sequence number (separate from node sequence)
+    if (payload.has_seq()) {
+      uint64_t seq = payload.seq();
+      uint64_t expected_seq = (device_state.last_seq + 1) % SEQ_NUMBER_MAX;
+
+      if (seq != expected_seq) {
+        std::cerr << "WARNING: Sequence number gap for device '" << topic.device_id << "' on "
+                  << node_id << " (got " << seq << ", expected " << expected_seq << ")\n";
+        // Don't reject, just warn - could be packet loss
+      }
+
+      device_state.last_seq = seq;
+    }
+
+    return true;
+  }
+
+  case MessageType::DDEATH: {
+    // Mark device as offline
+    auto device_it = state.devices.find(topic.device_id);
+    if (device_it != state.devices.end()) {
+      device_it->second.is_online = false;
+    }
+    return true;
+  }
+
   case MessageType::NCMD:
   case MessageType::DCMD:
   case MessageType::STATE:

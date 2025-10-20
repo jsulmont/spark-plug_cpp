@@ -5,6 +5,9 @@ target_link_libraries(publisher_example PRIVATE sparkplug_cpp)
 add_executable(publisher_dynamic_metrics publisher_dynamic_metrics.cpp)
 target_link_libraries(publisher_dynamic_metrics PRIVATE sparkplug_cpp)
 
+add_executable(publisher_device_example publisher_device_example.cpp)
+target_link_libraries(publisher_device_example PRIVATE sparkplug_cpp)
+
 add_executable(subscriber_example subscriber_example.cpp)
 target_link_libraries(subscriber_example PRIVATE sparkplug_cpp)
 
