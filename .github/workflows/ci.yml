@@ -26,6 +26,7 @@ jobs:
   build-and-test:
     name: Build and test
     runs-on: ubuntu-latest
+    container: archlinux:latest
 
     steps:
       - name: Checkout code
@@ -33,35 +34,49 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            clang-18 \
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            base-devel \
+            clang \
             cmake \
-            ninja-build \
-            mosquitto \
-            mosquitto-clients \
-            libprotobuf-dev \
-            protobuf-compiler \
-            libabsl-dev \
-            libpaho-mqtt-dev
+            ninja \
+            git \
+            protobuf \
+            abseil-cpp \
+            openssl \
+            mosquitto
+
+      - name: Build and install Paho MQTT C
+        run: |
+          git clone --depth 1 --branch v1.3.15 https://github.com/eclipse/paho.mqtt.c.git
+          cd paho.mqtt.c
+          cmake -Bbuild -H. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPAHO_WITH_SSL=TRUE \
+            -DPAHO_BUILD_STATIC=ON \
+            -DPAHO_BUILD_SHARED=ON \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake --build build -j$(nproc)
+          cmake --install build
 
       - name: Start Mosquitto broker
         run: |
-          sudo systemctl start mosquitto
-          sudo systemctl status mosquitto
-          # Wait a moment for broker to be ready
+          # Create minimal config
+          echo "listener 1883" > /tmp/mosquitto.conf
+          echo "allow_anonymous true" >> /tmp/mosquitto.conf
+          mosquitto -c /tmp/mosquitto.conf -d
           sleep 2
           # Verify broker is accessible
-          mosquitto_sub -h localhost -t test -C 1 -W 1 || true
+          timeout 1 mosquitto_sub -h localhost -t test || true
 
       - name: Configure CMake
         env:
-          CC: clang-18
-          CXX: clang++-18
+          CC: clang
+          CXX: clang++
         run: cmake --preset default
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build build -j$(nproc)
 
       - name: Run tests
-        run: ctest --preset default
+        run: ctest --test-dir build --output-on-failure

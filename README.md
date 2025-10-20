@@ -47,21 +47,37 @@ cmake --preset default
 cmake --build build
 ```
 
-**Linux (Ubuntu/Debian):**
+**Linux (Arch Linux - Recommended):**
 
 ```bash
-# Install dependencies
-sudo apt update
-sudo apt install -y cmake clang-16 libc++-16-dev libc++abi-16-dev \
-    protobuf-compiler libprotobuf-dev libabsl-dev \
-    mosquitto libpaho-mqtt-dev
+# Install system dependencies
+sudo pacman -S \
+    base-devel clang cmake ninja \
+    protobuf abseil-cpp openssl mosquitto
 
-# Clone and build
+# Build and install Paho MQTT C (not in official repos)
+git clone --depth 1 --branch v1.3.15 https://github.com/eclipse/paho.mqtt.c.git
+cd paho.mqtt.c
+cmake -Bbuild -H. \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DPAHO_WITH_SSL=TRUE \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cmake --build build -j$(nproc)
+sudo cmake --install build
+cd ..
+
+# Clone and build sparkplug_cpp
 git clone <repository-url>
 cd sparkplug_cpp
 cmake --preset default
-cmake --build build
+cmake --build build -j$(nproc)
 ```
+
+**Linux (Ubuntu/Debian):**
+
+ **Not currently supported** - Ubuntu 24.04's standard library lacks required C++23 features (`std::ranges::to`). Use Arch Linux instead.
+
+**Note:** This project requires full C++23 support including `std::expected` and `std::ranges::to`. Arch Linux with libc++ provides complete implementations.
 
 ### Basic Publisher Example
 

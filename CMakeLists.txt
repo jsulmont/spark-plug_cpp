@@ -10,6 +10,20 @@ if(APPLE)
     if(NOT DEFINED CMAKE_C_COMPILER)
         set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
     endif()
+elseif(UNIX)
+    # Linux: Prefer clang-18 if not specified
+    if(NOT DEFINED CMAKE_CXX_COMPILER)
+        find_program(CLANG_CXX NAMES clang++-18 clang++)
+        if(CLANG_CXX)
+            set(CMAKE_CXX_COMPILER ${CLANG_CXX})
+        endif()
+    endif()
+    if(NOT DEFINED CMAKE_C_COMPILER)
+        find_program(CLANG_C NAMES clang-18 clang)
+        if(CLANG_C)
+            set(CMAKE_C_COMPILER ${CLANG_C})
+        endif()
+    endif()
 endif()
 
 project(SparkplugB VERSION 1.0.0 LANGUAGES CXX C)
@@ -23,18 +37,18 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Platform-specific flags
 if(APPLE)
-    # C++ specific flags for libc++
+    # macOS: Use Homebrew LLVM libc++
     add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
     add_link_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
     add_link_options($<$<COMPILE_LANGUAGE:CXX>:-L/opt/homebrew/opt/llvm/lib/c++>)
     add_link_options($<$<COMPILE_LANGUAGE:CXX>:-Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++>)
 
-    set(CMAKE_PREFIX_PATH "/opt/homebrew")
+    set(CMAKE_PREFIX_PATH "/opt/homebrew;/opt/homebrew/opt/abseil")
     set(Protobuf_INCLUDE_DIR "/opt/homebrew/include")
     set(Protobuf_PROTOC_EXECUTABLE "/opt/homebrew/bin/protoc")
 elseif(UNIX)
-    # Linux: Use libstdc++ (default) for compatibility with system packages
-    # No special flags needed - libstdc++ is the default
+    # Linux: Use libstdc++ (default) - we use tl::expected polyfill for C++23 features
+    # No special flags needed
 endif()
 
 # Common warning flags
@@ -46,7 +60,7 @@ add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wno-c++98-compat>)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Protobuf REQUIRED)
-find_package(absl REQUIRED)
+find_package(absl CONFIG QUIET)  # Optional - newer protobuf needs it
 find_package(eclipse-paho-mqtt-c REQUIRED)
 
 add_subdirectory(proto)

@@ -9,9 +9,16 @@ set_target_properties(sparkplug_proto PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(sparkplug_proto
     PUBLIC
         protobuf::libprotobuf
-        absl::log_internal_message
-        absl::log_internal_check_op
 )
+
+# Link Abseil if targets exist (newer protobuf versions need it)
+if(TARGET absl::log_internal_message)
+    target_link_libraries(sparkplug_proto
+        PUBLIC
+            absl::log_internal_message
+            absl::log_internal_check_op
+    )
+endif()
 
 target_include_directories(sparkplug_proto
     PUBLIC

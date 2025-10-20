@@ -2,7 +2,7 @@
 CLAUDE.md
 build/
 build-*/
-docs/
+docs/html/
 .cache/
 compile_commands.json
 *.o
