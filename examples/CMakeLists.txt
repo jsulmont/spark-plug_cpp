@@ -17,6 +17,12 @@ target_link_libraries(subscriber_example PRIVATE sparkplug_cpp)
 add_executable(subscriber_example_debug subscriber_example_debug.cpp)
 target_link_libraries(subscriber_example_debug PRIVATE sparkplug_cpp)
 
+add_executable(publisher_tls_example publisher_tls_example.cpp)
+target_link_libraries(publisher_tls_example PRIVATE sparkplug_cpp)
+
+add_executable(subscriber_tls_example subscriber_tls_example.cpp)
+target_link_libraries(subscriber_tls_example PRIVATE sparkplug_cpp)
+
 # C API examples
 add_executable(publisher_example_c publisher_example_c.c)
 target_link_libraries(publisher_example_c PRIVATE sparkplug_c)

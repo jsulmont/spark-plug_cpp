@@ -344,6 +344,22 @@ std::expected<void, std::string> Subscriber::connect() {
   MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
   conn_opts.keepAliveInterval = DEFAULT_KEEP_ALIVE_INTERVAL;
   conn_opts.cleansession = config_.clean_session;
+
+  // Setup TLS/SSL if configured
+  MQTTAsync_SSLOptions ssl_opts = MQTTAsync_SSLOptions_initializer;
+  if (config_.tls.has_value()) {
+    const auto& tls = config_.tls.value();
+    ssl_opts.trustStore = tls.trust_store.c_str();
+    ssl_opts.keyStore = tls.key_store.empty() ? nullptr : tls.key_store.c_str();
+    ssl_opts.privateKey = tls.private_key.empty() ? nullptr : tls.private_key.c_str();
+    ssl_opts.privateKeyPassword =
+        tls.private_key_password.empty() ? nullptr : tls.private_key_password.c_str();
+    ssl_opts.enabledCipherSuites =
+        tls.enabled_cipher_suites.empty() ? nullptr : tls.enabled_cipher_suites.c_str();
+    ssl_opts.enableServerCertAuth = tls.enable_server_cert_auth;
+    conn_opts.ssl = &ssl_opts;
+  }
+
   conn_opts.context = &connect_promise;
   conn_opts.onSuccess = on_connect_success;
   conn_opts.onFailure = on_connect_failure;

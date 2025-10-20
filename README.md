@@ -9,6 +9,7 @@ A modern C++23 implementation of the Eclipse Sparkplug B 2.2 specification for I
 - **Full Sparkplug B 2.2 Compliance** - Implements the complete specification
 - **Modern C++23** - Uses latest C++ features (std::expected, ranges, modules-ready)
 - **Type Safe** - Leverages strong typing and compile-time checks
+- **TLS/SSL Support** - Secure MQTT connections with optional mutual authentication
 - **Easy Integration** - Simple Publisher/Subscriber API
 - **Tested** - Comprehensive compliance test suite included
 - **Cross Platform** - Works on macOS and Linux
@@ -224,6 +225,11 @@ The `examples/` directory contains:
 - **publisher_example_c.c** - Publisher using C bindings
 - **subscriber_example_c.c** - Subscriber using C bindings
 
+**TLS Examples:**
+
+- **publisher_tls_example.cpp** - Secure publisher with TLS/SSL
+- **subscriber_tls_example.cpp** - Secure subscriber with TLS/SSL
+
 Build and run:
 
 ```bash
@@ -235,6 +241,71 @@ Build and run:
 
 # Or try the dynamic metrics example
 ./build/examples/publisher_dynamic_metrics
+```
+
+## TLS/SSL Support
+
+The library supports secure MQTT connections using TLS/SSL encryption. This includes server authentication and optional mutual TLS (client certificates).
+
+### Basic TLS Configuration
+
+```cpp
+#include <sparkplug/publisher.hpp>
+
+sparkplug::Publisher::TlsOptions tls{
+    .trust_store = "/path/to/ca.crt",          // CA certificate (required)
+    .enable_server_cert_auth = true            // Verify server (default)
+};
+
+sparkplug::Publisher::Config config{
+    .broker_url = "ssl://localhost:8883",      // Use ssl:// prefix for TLS
+    .client_id = "secure_publisher",
+    .group_id = "Energy",
+    .edge_node_id = "Gateway01",
+    .tls = tls                                 // Enable TLS
+};
+
+sparkplug::Publisher publisher(std::move(config));
+publisher.connect();
+```
+
+### Mutual TLS (Client Certificates)
+
+```cpp
+sparkplug::Publisher::TlsOptions tls{
+    .trust_store = "/path/to/ca.crt",          // CA certificate
+    .key_store = "/path/to/client.crt",        // Client certificate
+    .private_key = "/path/to/client.key",      // Client private key
+    .private_key_password = "",                // Optional key password
+    .enable_server_cert_auth = true
+};
+```
+
+### Setting Up TLS
+
+For detailed instructions on generating certificates, configuring Mosquitto with TLS, and troubleshooting, see **[TLS_SETUP.md](TLS_SETUP.md)**.
+
+Quick setup for development:
+
+```bash
+# Generate self-signed certificates (development only)
+openssl req -new -x509 -days 365 -extensions v3_ca \
+    -keyout ca.key -out ca.crt -subj "/CN=MQTT CA"
+
+openssl genrsa -out server.key 2048
+openssl req -new -key server.key -out server.csr -subj "/CN=localhost"
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key \
+    -CAcreateserial -out server.crt -days 365
+
+# Configure Mosquitto with TLS (add to mosquitto.conf)
+listener 8883
+cafile /path/to/ca.crt
+certfile /path/to/server.crt
+keyfile /path/to/server.key
+
+# Restart Mosquitto
+brew services restart mosquitto  # macOS
+sudo systemctl restart mosquitto # Linux
 ```
 
 ## Testing

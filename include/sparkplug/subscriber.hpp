@@ -87,15 +87,29 @@ using CommandCallback =
 class Subscriber {
 public:
   /**
+   * @brief TLS/SSL configuration options for secure MQTT connections.
+   */
+  struct TlsOptions {
+    std::string trust_store;             ///< Path to CA certificate file (PEM format)
+    std::string key_store;               ///< Path to client certificate file (PEM format, optional)
+    std::string private_key;             ///< Path to client private key file (PEM format, optional)
+    std::string private_key_password;    ///< Password for encrypted private key (optional)
+    std::string enabled_cipher_suites;   ///< Colon-separated list of cipher suites (optional)
+    bool enable_server_cert_auth = true; ///< Verify server certificate (default: true)
+  };
+
+  /**
    * @brief Configuration parameters for the Sparkplug B subscriber.
    */
   struct Config {
-    std::string broker_url;        ///< MQTT broker URL (e.g., "tcp://localhost:1883")
+    std::string
+        broker_url; ///< MQTT broker URL (e.g., "tcp://localhost:1883" or "ssl://localhost:8883")
     std::string client_id;         ///< Unique MQTT client identifier
     std::string group_id;          ///< Sparkplug group ID to subscribe to
     int qos = 1;                   ///< MQTT QoS level (0, 1, or 2)
     bool clean_session = true;     ///< MQTT clean session flag
     bool validate_sequence = true; ///< Enable sequence number validation (detects packet loss)
+    std::optional<TlsOptions> tls; ///< TLS/SSL options (required if broker_url uses ssl://)
   };
 
   /**

@@ -119,6 +119,21 @@ std::expected<void, std::string> Publisher::connect() {
   conn_opts.keepAliveInterval = config_.keep_alive_interval;
   conn_opts.cleansession = config_.clean_session;
 
+  // Setup TLS/SSL if configured
+  MQTTAsync_SSLOptions ssl_opts = MQTTAsync_SSLOptions_initializer;
+  if (config_.tls.has_value()) {
+    const auto& tls = config_.tls.value();
+    ssl_opts.trustStore = tls.trust_store.c_str();
+    ssl_opts.keyStore = tls.key_store.empty() ? nullptr : tls.key_store.c_str();
+    ssl_opts.privateKey = tls.private_key.empty() ? nullptr : tls.private_key.c_str();
+    ssl_opts.privateKeyPassword =
+        tls.private_key_password.empty() ? nullptr : tls.private_key_password.c_str();
+    ssl_opts.enabledCipherSuites =
+        tls.enabled_cipher_suites.empty() ? nullptr : tls.enabled_cipher_suites.c_str();
+    ssl_opts.enableServerCertAuth = tls.enable_server_cert_auth;
+    conn_opts.ssl = &ssl_opts;
+  }
+
   // Setup Last Will and Testament (NDEATH)
   MQTTAsync_willOptions will = MQTTAsync_willOptions_initializer;
 
