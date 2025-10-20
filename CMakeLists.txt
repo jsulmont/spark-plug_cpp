@@ -70,3 +70,17 @@ add_subdirectory(examples)
 
 enable_testing()
 add_subdirectory(tests)
+
+# Doxygen documentation target
+find_package(Doxygen QUIET)
+if(DOXYGEN_FOUND)
+    add_custom_target(docs
+        COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Doxyfile
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM
+    )
+    message(STATUS "Doxygen found - added 'docs' target. Run 'cmake --build build --target docs'")
+else()
+    message(STATUS "Doxygen not found - 'docs' target not available")
+endif()

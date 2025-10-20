@@ -2,6 +2,8 @@
 
 A modern C++23 implementation of the Eclipse Sparkplug B 2.2 specification for Industrial IoT.
 
+**[📚 API Documentation](https://jsulmont.github.io/spark-plug_cpp/html/)** | [Sparkplug Specification](https://www.eclipse.org/tahu/spec/Sparkplug%20Topic%20Namespace%20and%20State%20ManagementV2.2-with%20appendix%20B%20format%20-%20Eclipse.pdf)
+
 ## Features
 
 - **Full Sparkplug B 2.2 Compliance** - Implements the complete specification
@@ -10,6 +12,17 @@ A modern C++23 implementation of the Eclipse Sparkplug B 2.2 specification for I
 - **Easy Integration** - Simple Publisher/Subscriber API
 - **Tested** - Comprehensive compliance test suite included
 - **Cross Platform** - Works on macOS and Linux
+
+## Documentation
+
+Full API documentation is available online **[here](https://jsulmont.github.io/spark-plug_cpp/html/)**
+
+The documentation includes complete API reference, examples, and class diagrams.
+
+To regenerate locally:
+```bash
+cmake --build build --target docs
+```
 
 ## What is Sparkplug B?
 
