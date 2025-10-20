@@ -55,6 +55,17 @@ typedef struct sparkplug_payload sparkplug_payload_t;
 typedef void (*sparkplug_message_callback_t)(const char* topic, const uint8_t* payload_data,
                                              size_t payload_len, void* user_data);
 
+/**
+ * @brief Callback function type for Sparkplug command messages (NCMD/DCMD).
+ *
+ * @param topic MQTT topic string
+ * @param payload_data Raw protobuf payload data
+ * @param payload_len Length of payload data in bytes
+ * @param user_data User-provided context pointer
+ */
+typedef void (*sparkplug_command_callback_t)(const char* topic, const uint8_t* payload_data,
+                                             size_t payload_len, void* user_data);
+
 /* ============================================================================
  * Publisher API
  * ========================================================================= */
@@ -160,6 +171,76 @@ uint64_t sparkplug_publisher_get_seq(const sparkplug_publisher_t* pub);
  * @return Current bdSeq value
  */
 uint64_t sparkplug_publisher_get_bd_seq(const sparkplug_publisher_t* pub);
+
+/**
+ * @brief Publishes a DBIRTH (Device Birth) message for a device.
+ *
+ * @param pub Publisher handle
+ * @param device_id Device identifier (e.g., "Sensor01", "Motor02")
+ * @param payload_data Serialized Sparkplug protobuf payload
+ * @param payload_len Length of payload data in bytes
+ *
+ * @return 0 on success, -1 on failure
+ *
+ * @note Must call publish_birth() before publishing any device births.
+ */
+int sparkplug_publisher_publish_device_birth(sparkplug_publisher_t* pub, const char* device_id,
+                                             const uint8_t* payload_data, size_t payload_len);
+
+/**
+ * @brief Publishes a DDATA (Device Data) message for a device.
+ *
+ * @param pub Publisher handle
+ * @param device_id Device identifier
+ * @param payload_data Serialized Sparkplug protobuf payload
+ * @param payload_len Length of payload data in bytes
+ *
+ * @return 0 on success, -1 on failure
+ *
+ * @note Must call publish_device_birth() before the first publish_device_data().
+ */
+int sparkplug_publisher_publish_device_data(sparkplug_publisher_t* pub, const char* device_id,
+                                            const uint8_t* payload_data, size_t payload_len);
+
+/**
+ * @brief Publishes a DDEATH (Device Death) message for a device.
+ *
+ * @param pub Publisher handle
+ * @param device_id Device identifier
+ *
+ * @return 0 on success, -1 on failure
+ */
+int sparkplug_publisher_publish_device_death(sparkplug_publisher_t* pub, const char* device_id);
+
+/**
+ * @brief Publishes an NCMD (Node Command) message to another edge node.
+ *
+ * @param pub Publisher handle
+ * @param target_edge_node_id Target edge node identifier
+ * @param payload_data Serialized Sparkplug protobuf payload
+ * @param payload_len Length of payload data in bytes
+ *
+ * @return 0 on success, -1 on failure
+ */
+int sparkplug_publisher_publish_node_command(sparkplug_publisher_t* pub,
+                                             const char* target_edge_node_id,
+                                             const uint8_t* payload_data, size_t payload_len);
+
+/**
+ * @brief Publishes a DCMD (Device Command) message to a device on another edge node.
+ *
+ * @param pub Publisher handle
+ * @param target_edge_node_id Target edge node identifier
+ * @param target_device_id Target device identifier
+ * @param payload_data Serialized Sparkplug protobuf payload
+ * @param payload_len Length of payload data in bytes
+ *
+ * @return 0 on success, -1 on failure
+ */
+int sparkplug_publisher_publish_device_command(sparkplug_publisher_t* pub,
+                                               const char* target_edge_node_id,
+                                               const char* target_device_id,
+                                               const uint8_t* payload_data, size_t payload_len);
 
 /* ============================================================================
  * Subscriber API
