@@ -7,6 +7,7 @@
 
 #include <expected>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -25,7 +26,8 @@ namespace sparkplug {
  * - Birth/Death sequence (bdSeq) tracking for session management
  *
  * @par Thread Safety
- * This class is NOT thread-safe. All methods must be called from the same thread.
+ * This class is thread-safe. All methods may be called from any thread concurrently.
+ * Internal synchronization is handled via mutex locking.
  *
  * @par Example Usage
  * @code
@@ -194,6 +196,7 @@ public:
    * @note Useful for monitoring and debugging.
    */
   [[nodiscard]] uint64_t get_seq() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return seq_num_;
   }
 
@@ -205,6 +208,7 @@ public:
    * @note Used by SCADA to detect new sessions/rebirths.
    */
   [[nodiscard]] uint64_t get_bd_seq() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return bd_seq_num_;
   }
 
@@ -349,6 +353,9 @@ private:
   std::unordered_map<std::string, DeviceState, StringHash, StringEqual> device_states_;
 
   bool is_connected_{false};
+
+  // Mutex for thread-safe access to all mutable state
+  mutable std::mutex mutex_;
 
   [[nodiscard]] std::expected<void, std::string>
   publish_message(const Topic& topic, std::span<const uint8_t> payload_data);

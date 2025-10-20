@@ -72,18 +72,27 @@ Publisher::Publisher(Publisher&& other) noexcept
       seq_num_(other.seq_num_), bd_seq_num_(other.bd_seq_num_),
       death_payload_data_(std::move(other.death_payload_data_)),
       last_birth_payload_(std::move(other.last_birth_payload_)),
-      is_connected_(other.is_connected_) {
+      device_states_(std::move(other.device_states_)), is_connected_(other.is_connected_)
+// mutex_ is default-constructed (mutexes are not moveable)
+{
+  std::lock_guard<std::mutex> lock(other.mutex_);
   other.is_connected_ = false;
 }
 
 Publisher& Publisher::operator=(Publisher&& other) noexcept {
   if (this != &other) {
+    // Lock both mutexes in consistent order to avoid deadlock
+    std::lock(mutex_, other.mutex_);
+    std::lock_guard<std::mutex> lock1(mutex_, std::adopt_lock);
+    std::lock_guard<std::mutex> lock2(other.mutex_, std::adopt_lock);
+
     config_ = std::move(other.config_);
     client_ = std::move(other.client_);
     seq_num_ = other.seq_num_;
     bd_seq_num_ = other.bd_seq_num_;
     death_payload_data_ = std::move(other.death_payload_data_);
     last_birth_payload_ = std::move(other.last_birth_payload_);
+    device_states_ = std::move(other.device_states_);
     is_connected_ = other.is_connected_;
     other.is_connected_ = false;
   }
@@ -91,6 +100,8 @@ Publisher& Publisher::operator=(Publisher&& other) noexcept {
 }
 
 std::expected<void, std::string> Publisher::connect() {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   MQTTAsync raw_client = nullptr;
   int rc = MQTTAsync_create(&raw_client, config_.broker_url.c_str(), config_.client_id.c_str(),
                             MQTTCLIENT_PERSISTENCE_NONE, nullptr);
@@ -156,6 +167,8 @@ std::expected<void, std::string> Publisher::connect() {
 }
 
 std::expected<void, std::string> Publisher::disconnect() {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!client_) {
     return std::unexpected("Not connected");
   }
@@ -191,6 +204,7 @@ std::expected<void, std::string> Publisher::disconnect() {
 
 std::expected<void, std::string> Publisher::publish_message(const Topic& topic,
                                                             std::span<const uint8_t> payload_data) {
+  // Note: mutex already held by caller
   if (!client_ || !is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -214,6 +228,8 @@ std::expected<void, std::string> Publisher::publish_message(const Topic& topic,
 }
 
 std::expected<void, std::string> Publisher::publish_birth(PayloadBuilder& payload) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -257,6 +273,8 @@ std::expected<void, std::string> Publisher::publish_birth(PayloadBuilder& payloa
 }
 
 std::expected<void, std::string> Publisher::publish_data(PayloadBuilder& payload) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -277,6 +295,8 @@ std::expected<void, std::string> Publisher::publish_data(PayloadBuilder& payload
 }
 
 std::expected<void, std::string> Publisher::publish_death() {
+  std::unique_lock<std::mutex> lock(mutex_);
+
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -291,10 +311,14 @@ std::expected<void, std::string> Publisher::publish_death() {
     return result;
   }
 
+  // Unlock before calling disconnect() to avoid deadlock
+  lock.unlock();
   return disconnect();
 }
 
 std::expected<void, std::string> Publisher::rebirth() {
+  std::unique_lock<std::mutex> lock(mutex_);
+
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -330,9 +354,13 @@ std::expected<void, std::string> Publisher::rebirth() {
               .edge_node_id = config_.edge_node_id,
               .device_id = ""};
 
+  // Unlock before calling disconnect/connect to avoid deadlock
+  lock.unlock();
+
   auto result = disconnect()
                     .and_then([this]() { return connect(); })
                     .and_then([this, &topic, &payload_data]() {
+                      std::lock_guard<std::mutex> lock(mutex_);
                       return publish_message(topic, payload_data);
                     });
 
@@ -340,6 +368,8 @@ std::expected<void, std::string> Publisher::rebirth() {
     return result;
   }
 
+  // Reacquire lock to modify seq_num_
+  lock.lock();
   seq_num_ = 0;
 
   return {};
@@ -347,6 +377,8 @@ std::expected<void, std::string> Publisher::rebirth() {
 
 std::expected<void, std::string> Publisher::publish_device_birth(std::string_view device_id,
                                                                  PayloadBuilder& payload) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -379,6 +411,8 @@ std::expected<void, std::string> Publisher::publish_device_birth(std::string_vie
 
 std::expected<void, std::string> Publisher::publish_device_data(std::string_view device_id,
                                                                 PayloadBuilder& payload) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -406,6 +440,8 @@ std::expected<void, std::string> Publisher::publish_device_data(std::string_view
 }
 
 std::expected<void, std::string> Publisher::publish_device_death(std::string_view device_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -434,6 +470,8 @@ std::expected<void, std::string> Publisher::publish_device_death(std::string_vie
 
 std::expected<void, std::string>
 Publisher::publish_node_command(std::string_view target_edge_node_id, PayloadBuilder& payload) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
@@ -450,6 +488,8 @@ Publisher::publish_node_command(std::string_view target_edge_node_id, PayloadBui
 std::expected<void, std::string>
 Publisher::publish_device_command(std::string_view target_edge_node_id,
                                   std::string_view target_device_id, PayloadBuilder& payload) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }

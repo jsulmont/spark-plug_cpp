@@ -5,6 +5,16 @@
  * This header provides a pure C interface to the Sparkplug B C++ library.
  * All functions return 0 on success, -1 on failure (unless otherwise specified).
  *
+ * @par Thread Safety
+ * All functions in this API are thread-safe. Multiple threads may call any
+ * function concurrently on the same or different handles. Internal synchronization
+ * is handled automatically via mutex locking in the underlying C++ implementation.
+ *
+ * This enables safe usage in multi-threaded applications, including:
+ * - Publishing from multiple threads simultaneously
+ * - Sharing publisher/subscriber handles across threads
+ * - Concurrent calls to get_seq(), get_bd_seq(), etc.
+ *
  * @par Example Usage
  * @code
  * // Create and use a publisher

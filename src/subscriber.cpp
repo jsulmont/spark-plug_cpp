@@ -56,13 +56,22 @@ Subscriber::~Subscriber() {
 }
 
 Subscriber::Subscriber(Subscriber&& other) noexcept
-    : callback_(std::move(other.callback_)), config_(std::move(other.config_)),
-      client_(std::move(other.client_)), node_states_(std::move(other.node_states_)) {
+    : callback_(std::move(other.callback_)), command_callback_(std::move(other.command_callback_)),
+      config_(std::move(other.config_)), client_(std::move(other.client_)),
+      node_states_(std::move(other.node_states_))
+// mutex_ is default-constructed (mutexes are not moveable)
+{
 }
 
 Subscriber& Subscriber::operator=(Subscriber&& other) noexcept {
   if (this != &other) {
+    // Lock both mutexes in consistent order to avoid deadlock
+    std::lock(mutex_, other.mutex_);
+    std::lock_guard<std::mutex> lock1(mutex_, std::adopt_lock);
+    std::lock_guard<std::mutex> lock2(other.mutex_, std::adopt_lock);
+
     callback_ = std::move(other.callback_);
+    command_callback_ = std::move(other.command_callback_);
     config_ = std::move(other.config_);
     client_ = std::move(other.client_);
     node_states_ = std::move(other.node_states_);
@@ -72,6 +81,7 @@ Subscriber& Subscriber::operator=(Subscriber&& other) noexcept {
 
 bool Subscriber::validate_message(const Topic& topic,
                                   const org::eclipse::tahu::protobuf::Payload& payload) {
+  // Note: mutex already held by caller (update_node_state)
   if (!config_.validate_sequence) {
     return true;
   }
@@ -221,10 +231,12 @@ bool Subscriber::validate_message(const Topic& topic,
 
 void Subscriber::update_node_state(const Topic& topic,
                                    const org::eclipse::tahu::protobuf::Payload& payload) {
+  std::lock_guard<std::mutex> lock(mutex_);
   validate_message(topic, payload);
 }
 
 void Subscriber::set_command_callback(CommandCallback callback) {
+  std::lock_guard<std::mutex> lock(mutex_);
   command_callback_ = std::move(callback);
 }
 
@@ -311,6 +323,8 @@ static void on_connection_lost(void* context, char* cause) {
 }
 
 std::expected<void, std::string> Subscriber::connect() {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   MQTTAsync raw_client = nullptr;
   int rc = MQTTAsync_create(&raw_client, config_.broker_url.c_str(), config_.client_id.c_str(),
                             MQTTCLIENT_PERSISTENCE_NONE, nullptr);
@@ -354,6 +368,8 @@ std::expected<void, std::string> Subscriber::connect() {
 }
 
 std::expected<void, std::string> Subscriber::disconnect() {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!client_) {
     return std::unexpected("Not connected");
   }
@@ -386,6 +402,8 @@ std::expected<void, std::string> Subscriber::disconnect() {
 }
 
 std::expected<void, std::string> Subscriber::subscribe_all() {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!client_) {
     return std::unexpected("Not connected");
   }
@@ -403,6 +421,8 @@ std::expected<void, std::string> Subscriber::subscribe_all() {
 }
 
 std::expected<void, std::string> Subscriber::subscribe_node(std::string_view edge_node_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!client_) {
     return std::unexpected("Not connected");
   }
@@ -420,6 +440,8 @@ std::expected<void, std::string> Subscriber::subscribe_node(std::string_view edg
 }
 
 std::expected<void, std::string> Subscriber::subscribe_state(std::string_view host_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   if (!client_) {
     return std::unexpected("Not connected");
   }
@@ -438,6 +460,8 @@ std::expected<void, std::string> Subscriber::subscribe_state(std::string_view ho
 
 std::optional<std::reference_wrapper<const Subscriber::NodeState>>
 Subscriber::get_node_state(std::string_view edge_node_id) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+
   auto it = node_states_.find(edge_node_id);
   if (it != node_states_.end()) {
     return std::cref(it->second);

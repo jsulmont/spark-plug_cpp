@@ -8,6 +8,7 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -53,7 +54,9 @@ using CommandCallback =
  * - Node state tracking per edge node
  *
  * @par Thread Safety
- * This class is NOT thread-safe. The callback is invoked on the MQTT thread.
+ * This class is thread-safe. All methods may be called from any thread concurrently.
+ * Internal synchronization is handled via mutex locking.
+ * Note: Callbacks are invoked on the MQTT client thread.
  *
  * @par Example Usage
  * @code
@@ -284,6 +287,9 @@ private:
 
   // Track state of each edge node for validation (with heterogeneous lookup)
   std::unordered_map<std::string, NodeState, StringHash, StringEqual> node_states_;
+
+  // Mutex for thread-safe access to all mutable state
+  mutable std::mutex mutex_;
 
   bool validate_message(const Topic& topic, const org::eclipse::tahu::protobuf::Payload& payload);
 };
