@@ -380,30 +380,6 @@ void test_auto_sequence() {
 
 // Test 9: DBIRTH sequence starts at 0
 void test_dbirth_sequence_zero() {
-  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
-                                      .client_id = "test_dbirth_seq",
-                                      .group_id = "TestGroup",
-                                      .edge_node_id = "TestNode"};
-
-  sparkplug::Publisher pub(std::move(config));
-
-  if (!pub.connect()) {
-    report_test("DBIRTH sequence zero", false, "Failed to connect");
-    return;
-  }
-
-  // Publish NBIRTH first
-  sparkplug::PayloadBuilder nbirth;
-  nbirth.add_metric("NodeMetric", 100);
-  if (!pub.publish_birth(nbirth)) {
-    report_test("DBIRTH sequence zero", false, "NBIRTH failed");
-    (void)pub.disconnect();
-    return;
-  }
-
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-  // Now publish DBIRTH
   std::atomic<bool> got_dbirth{false};
   std::atomic<uint64_t> dbirth_seq{999};
 
@@ -417,6 +393,7 @@ void test_dbirth_sequence_zero() {
     }
   };
 
+  // Set up subscriber FIRST so it can receive NBIRTH
   sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
                                            .client_id = "test_dbirth_seq_sub",
                                            .group_id = "TestGroup"};
@@ -424,12 +401,38 @@ void test_dbirth_sequence_zero() {
   sparkplug::Subscriber sub(std::move(sub_config), callback);
   if (!sub.connect() || !sub.subscribe_all()) {
     report_test("DBIRTH sequence zero", false, "Subscriber setup failed");
-    (void)pub.disconnect();
     return;
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
+  // Now create publisher and publish NBIRTH
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_dbirth_seq",
+                                      .group_id = "TestGroup",
+                                      .edge_node_id = "TestNode"};
+
+  sparkplug::Publisher pub(std::move(config));
+
+  if (!pub.connect()) {
+    report_test("DBIRTH sequence zero", false, "Failed to connect");
+    (void)sub.disconnect();
+    return;
+  }
+
+  // Publish NBIRTH first
+  sparkplug::PayloadBuilder nbirth;
+  nbirth.add_metric("NodeMetric", 100);
+  if (!pub.publish_birth(nbirth)) {
+    report_test("DBIRTH sequence zero", false, "NBIRTH failed");
+    (void)pub.disconnect();
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  // Now publish DBIRTH
   sparkplug::PayloadBuilder dbirth;
   dbirth.add_metric_with_alias("DeviceMetric", 1, 42.0);
   if (!pub.publish_device_birth("Device01", dbirth)) {
@@ -478,52 +481,6 @@ void test_dbirth_requires_nbirth() {
 
 // Test 11: Device and node sequence numbers are independent
 void test_device_sequence_independent() {
-  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
-                                      .client_id = "test_dev_seq_ind",
-                                      .group_id = "TestGroup",
-                                      .edge_node_id = "TestNode"};
-
-  sparkplug::Publisher pub(std::move(config));
-
-  if (!pub.connect()) {
-    report_test("Device sequence independent", false, "Failed to connect");
-    return;
-  }
-
-  // Publish NBIRTH
-  sparkplug::PayloadBuilder nbirth;
-  nbirth.add_metric("NodeMetric", 100);
-  if (!pub.publish_birth(nbirth)) {
-    report_test("Device sequence independent", false, "NBIRTH failed");
-    (void)pub.disconnect();
-    return;
-  }
-
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-  // Publish DBIRTH
-  sparkplug::PayloadBuilder dbirth;
-  dbirth.add_metric("DeviceMetric", 42);
-  if (!pub.publish_device_birth("Device01", dbirth)) {
-    report_test("Device sequence independent", false, "DBIRTH failed");
-    (void)pub.disconnect();
-    return;
-  }
-
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-  // Publish NDATA - should increment node sequence
-  sparkplug::PayloadBuilder ndata;
-  ndata.add_metric("NodeMetric", 101);
-  if (!pub.publish_data(ndata)) {
-    report_test("Device sequence independent", false, "NDATA failed");
-    (void)pub.disconnect();
-    return;
-  }
-
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-  // Publish DDATA - should have independent sequence starting from 0
   std::atomic<bool> got_ddata{false};
   std::atomic<uint64_t> ddata_seq{999};
 
@@ -537,6 +494,7 @@ void test_device_sequence_independent() {
     }
   };
 
+  // Set up subscriber FIRST so it can track the full sequence
   sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
                                            .client_id = "test_dev_seq_sub",
                                            .group_id = "TestGroup"};
@@ -544,12 +502,62 @@ void test_device_sequence_independent() {
   sparkplug::Subscriber sub(std::move(sub_config), callback);
   if (!sub.connect() || !sub.subscribe_all()) {
     report_test("Device sequence independent", false, "Subscriber setup failed");
-    (void)pub.disconnect();
     return;
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
+  // Now create publisher
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_dev_seq_ind",
+                                      .group_id = "TestGroup",
+                                      .edge_node_id = "TestNode"};
+
+  sparkplug::Publisher pub(std::move(config));
+
+  if (!pub.connect()) {
+    report_test("Device sequence independent", false, "Failed to connect");
+    (void)sub.disconnect();
+    return;
+  }
+
+  // Publish NBIRTH
+  sparkplug::PayloadBuilder nbirth;
+  nbirth.add_metric("NodeMetric", 100);
+  if (!pub.publish_birth(nbirth)) {
+    report_test("Device sequence independent", false, "NBIRTH failed");
+    (void)pub.disconnect();
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  // Publish DBIRTH
+  sparkplug::PayloadBuilder dbirth;
+  dbirth.add_metric("DeviceMetric", 42);
+  if (!pub.publish_device_birth("Device01", dbirth)) {
+    report_test("Device sequence independent", false, "DBIRTH failed");
+    (void)pub.disconnect();
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  // Publish NDATA - should increment node sequence
+  sparkplug::PayloadBuilder ndata;
+  ndata.add_metric("NodeMetric", 101);
+  if (!pub.publish_data(ndata)) {
+    report_test("Device sequence independent", false, "NDATA failed");
+    (void)pub.disconnect();
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  // Publish DDATA - should have independent sequence starting from 0
   sparkplug::PayloadBuilder ddata;
   ddata.add_metric("DeviceMetric", 43);
   if (!pub.publish_device_data("Device01", ddata)) {
