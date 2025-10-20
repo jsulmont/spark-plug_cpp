@@ -378,10 +378,401 @@ void test_auto_sequence() {
   (void)pub.disconnect();
 }
 
+// Test 9: DBIRTH sequence starts at 0
+void test_dbirth_sequence_zero() {
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_dbirth_seq",
+                                      .group_id = "TestGroup",
+                                      .edge_node_id = "TestNode"};
+
+  sparkplug::Publisher pub(std::move(config));
+
+  if (!pub.connect()) {
+    report_test("DBIRTH sequence zero", false, "Failed to connect");
+    return;
+  }
+
+  // Publish NBIRTH first
+  sparkplug::PayloadBuilder nbirth;
+  nbirth.add_metric("NodeMetric", 100);
+  if (!pub.publish_birth(nbirth)) {
+    report_test("DBIRTH sequence zero", false, "NBIRTH failed");
+    (void)pub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  // Now publish DBIRTH
+  std::atomic<bool> got_dbirth{false};
+  std::atomic<uint64_t> dbirth_seq{999};
+
+  auto callback = [&](const sparkplug::Topic& topic,
+                      const org::eclipse::tahu::protobuf::Payload& payload) {
+    if (topic.message_type == sparkplug::MessageType::DBIRTH && topic.device_id == "Device01") {
+      got_dbirth = true;
+      if (payload.has_seq()) {
+        dbirth_seq = payload.seq();
+      }
+    }
+  };
+
+  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
+                                           .client_id = "test_dbirth_seq_sub",
+                                           .group_id = "TestGroup"};
+
+  sparkplug::Subscriber sub(std::move(sub_config), callback);
+  if (!sub.connect() || !sub.subscribe_all()) {
+    report_test("DBIRTH sequence zero", false, "Subscriber setup failed");
+    (void)pub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  sparkplug::PayloadBuilder dbirth;
+  dbirth.add_metric_with_alias("DeviceMetric", 1, 42.0);
+  if (!pub.publish_device_birth("Device01", dbirth)) {
+    report_test("DBIRTH sequence zero", false, "DBIRTH failed");
+    (void)pub.disconnect();
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  bool passed = got_dbirth && dbirth_seq == 0;
+  report_test("DBIRTH sequence zero", passed,
+              !got_dbirth ? "No DBIRTH received"
+                          : std::format("Expected seq=0, got seq={}", dbirth_seq.load()));
+
+  (void)pub.disconnect();
+  (void)sub.disconnect();
+}
+
+// Test 10: DBIRTH requires NBIRTH first
+void test_dbirth_requires_nbirth() {
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_dbirth_nbirth",
+                                      .group_id = "TestGroup",
+                                      .edge_node_id = "TestNode"};
+
+  sparkplug::Publisher pub(std::move(config));
+
+  if (!pub.connect()) {
+    report_test("DBIRTH requires NBIRTH", false, "Failed to connect");
+    return;
+  }
+
+  // Try to publish DBIRTH without NBIRTH first
+  sparkplug::PayloadBuilder dbirth;
+  dbirth.add_metric("test", 42);
+  auto result = pub.publish_device_birth("Device01", dbirth);
+
+  bool passed = !result.has_value(); // Should fail
+  report_test("DBIRTH requires NBIRTH", passed,
+              result.has_value() ? "DBIRTH succeeded without NBIRTH (should fail)" : "");
+
+  (void)pub.disconnect();
+}
+
+// Test 11: Device and node sequence numbers are independent
+void test_device_sequence_independent() {
+  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
+                                      .client_id = "test_dev_seq_ind",
+                                      .group_id = "TestGroup",
+                                      .edge_node_id = "TestNode"};
+
+  sparkplug::Publisher pub(std::move(config));
+
+  if (!pub.connect()) {
+    report_test("Device sequence independent", false, "Failed to connect");
+    return;
+  }
+
+  // Publish NBIRTH
+  sparkplug::PayloadBuilder nbirth;
+  nbirth.add_metric("NodeMetric", 100);
+  if (!pub.publish_birth(nbirth)) {
+    report_test("Device sequence independent", false, "NBIRTH failed");
+    (void)pub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  // Publish DBIRTH
+  sparkplug::PayloadBuilder dbirth;
+  dbirth.add_metric("DeviceMetric", 42);
+  if (!pub.publish_device_birth("Device01", dbirth)) {
+    report_test("Device sequence independent", false, "DBIRTH failed");
+    (void)pub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  // Publish NDATA - should increment node sequence
+  sparkplug::PayloadBuilder ndata;
+  ndata.add_metric("NodeMetric", 101);
+  if (!pub.publish_data(ndata)) {
+    report_test("Device sequence independent", false, "NDATA failed");
+    (void)pub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  // Publish DDATA - should have independent sequence starting from 0
+  std::atomic<bool> got_ddata{false};
+  std::atomic<uint64_t> ddata_seq{999};
+
+  auto callback = [&](const sparkplug::Topic& topic,
+                      const org::eclipse::tahu::protobuf::Payload& payload) {
+    if (topic.message_type == sparkplug::MessageType::DDATA && topic.device_id == "Device01") {
+      got_ddata = true;
+      if (payload.has_seq()) {
+        ddata_seq = payload.seq();
+      }
+    }
+  };
+
+  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
+                                           .client_id = "test_dev_seq_sub",
+                                           .group_id = "TestGroup"};
+
+  sparkplug::Subscriber sub(std::move(sub_config), callback);
+  if (!sub.connect() || !sub.subscribe_all()) {
+    report_test("Device sequence independent", false, "Subscriber setup failed");
+    (void)pub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  sparkplug::PayloadBuilder ddata;
+  ddata.add_metric("DeviceMetric", 43);
+  if (!pub.publish_device_data("Device01", ddata)) {
+    report_test("Device sequence independent", false, "DDATA failed");
+    (void)pub.disconnect();
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  // Node seq should be 1, device seq should be 1
+  bool passed = got_ddata && ddata_seq == 1 && pub.get_seq() == 1;
+  report_test("Device sequence independent", passed,
+              !got_ddata ? "No DDATA received" : std::format("Node seq={}, Device seq={} (both should be 1)",
+                                                             pub.get_seq(), ddata_seq.load()));
+
+  (void)pub.disconnect();
+  (void)sub.disconnect();
+}
+
+// Test 12: NCMD can be published and received
+void test_ncmd_publishing() {
+  std::atomic<bool> got_ncmd{false};
+  std::atomic<bool> has_rebirth_command{false};
+
+  auto callback = [&](const sparkplug::Topic& topic,
+                      const org::eclipse::tahu::protobuf::Payload& payload) {
+    if (topic.message_type == sparkplug::MessageType::NCMD) {
+      got_ncmd = true;
+      for (const auto& metric : payload.metrics()) {
+        if (metric.name() == "Node Control/Rebirth") {
+          has_rebirth_command = true;
+          break;
+        }
+      }
+    }
+  };
+
+  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
+                                           .client_id = "test_ncmd_sub",
+                                           .group_id = "TestGroup"};
+
+  sparkplug::Subscriber sub(std::move(sub_config), callback);
+  if (!sub.connect() || !sub.subscribe_all()) {
+    report_test("NCMD publishing", false, "Subscriber setup failed");
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
+                                          .client_id = "test_ncmd_pub",
+                                          .group_id = "TestGroup",
+                                          .edge_node_id = "HostNode"};
+
+  sparkplug::Publisher pub(std::move(pub_config));
+  if (!pub.connect()) {
+    report_test("NCMD publishing", false, "Publisher failed to connect");
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  // Publish NCMD
+  sparkplug::PayloadBuilder cmd;
+  cmd.add_metric("Node Control/Rebirth", true);
+  if (!pub.publish_node_command("TargetNode", cmd)) {
+    report_test("NCMD publishing", false, "NCMD publish failed");
+    (void)pub.disconnect();
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  bool passed = got_ncmd && has_rebirth_command;
+  report_test("NCMD publishing", passed,
+              !got_ncmd              ? "No NCMD received"
+              : !has_rebirth_command ? "Rebirth command not found"
+                                     : "");
+
+  (void)pub.disconnect();
+  (void)sub.disconnect();
+}
+
+// Test 13: DCMD can be published and received
+void test_dcmd_publishing() {
+  std::atomic<bool> got_dcmd{false};
+  std::atomic<bool> has_setpoint{false};
+
+  auto callback = [&](const sparkplug::Topic& topic,
+                      const org::eclipse::tahu::protobuf::Payload& payload) {
+    if (topic.message_type == sparkplug::MessageType::DCMD && topic.device_id == "Motor01") {
+      got_dcmd = true;
+      for (const auto& metric : payload.metrics()) {
+        if (metric.name() == "SetPoint") {
+          has_setpoint = true;
+          break;
+        }
+      }
+    }
+  };
+
+  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
+                                           .client_id = "test_dcmd_sub",
+                                           .group_id = "TestGroup"};
+
+  sparkplug::Subscriber sub(std::move(sub_config), callback);
+  if (!sub.connect() || !sub.subscribe_all()) {
+    report_test("DCMD publishing", false, "Subscriber setup failed");
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
+                                          .client_id = "test_dcmd_pub",
+                                          .group_id = "TestGroup",
+                                          .edge_node_id = "HostNode"};
+
+  sparkplug::Publisher pub(std::move(pub_config));
+  if (!pub.connect()) {
+    report_test("DCMD publishing", false, "Publisher failed to connect");
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  // Publish DCMD
+  sparkplug::PayloadBuilder cmd;
+  cmd.add_metric("SetPoint", 75.0);
+  if (!pub.publish_device_command("TargetNode", "Motor01", cmd)) {
+    report_test("DCMD publishing", false, "DCMD publish failed");
+    (void)pub.disconnect();
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  bool passed = got_dcmd && has_setpoint;
+  report_test("DCMD publishing", passed,
+              !got_dcmd       ? "No DCMD received"
+              : !has_setpoint ? "SetPoint metric not found"
+                              : "");
+
+  (void)pub.disconnect();
+  (void)sub.disconnect();
+}
+
+// Test 14: Command callback invoked for NCMD/DCMD
+void test_command_callback() {
+  std::atomic<bool> command_callback_invoked{false};
+  std::atomic<bool> general_callback_invoked{false};
+
+  auto command_callback = [&](const sparkplug::Topic& topic, const auto&) {
+    if (topic.message_type == sparkplug::MessageType::NCMD) {
+      command_callback_invoked = true;
+    }
+  };
+
+  auto general_callback = [&](const sparkplug::Topic& topic, const auto&) {
+    if (topic.message_type == sparkplug::MessageType::NCMD) {
+      general_callback_invoked = true;
+    }
+  };
+
+  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
+                                           .client_id = "test_cmd_cb_sub",
+                                           .group_id = "TestGroup"};
+
+  sparkplug::Subscriber sub(std::move(sub_config), general_callback);
+  sub.set_command_callback(command_callback);
+
+  if (!sub.connect() || !sub.subscribe_all()) {
+    report_test("Command callback invoked", false, "Subscriber setup failed");
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
+                                          .client_id = "test_cmd_cb_pub",
+                                          .group_id = "TestGroup",
+                                          .edge_node_id = "HostNode"};
+
+  sparkplug::Publisher pub(std::move(pub_config));
+  if (!pub.connect()) {
+    report_test("Command callback invoked", false, "Publisher failed to connect");
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  sparkplug::PayloadBuilder cmd;
+  cmd.add_metric("Node Control/Rebirth", true);
+  if (!pub.publish_node_command("TargetNode", cmd)) {
+    report_test("Command callback invoked", false, "NCMD publish failed");
+    (void)pub.disconnect();
+    (void)sub.disconnect();
+    return;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+  bool passed = command_callback_invoked && general_callback_invoked;
+  report_test("Command callback invoked", passed,
+              !command_callback_invoked ? "Command callback not invoked"
+              : !general_callback_invoked ? "General callback not invoked"
+                                          : "");
+
+  (void)pub.disconnect();
+  (void)sub.disconnect();
+}
+
 int main() {
   std::cout << "=== Sparkplug 2.2 Compliance Tests ===\n\n";
 
-  // Run all tests
+  // Node-level tests
   test_nbirth_sequence_zero();
   test_sequence_wraps();
   test_bdseq_increment();
@@ -390,6 +781,16 @@ int main() {
   test_subscriber_validation();
   test_payload_timestamp();
   test_auto_sequence();
+
+  // Device-level tests
+  test_dbirth_sequence_zero();
+  test_dbirth_requires_nbirth();
+  test_device_sequence_independent();
+
+  // Command handling tests
+  test_ncmd_publishing();
+  test_dcmd_publishing();
+  test_command_callback();
 
   // Summary
   int passed = 0;
