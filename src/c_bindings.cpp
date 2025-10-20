@@ -23,29 +23,23 @@ struct sparkplug_payload {
   sparkplug::PayloadBuilder impl;
 };
 
-// Helper function to copy metrics from protobuf to PayloadBuilder
 static void copy_metrics_to_builder(sparkplug::PayloadBuilder& builder,
                                     const org::eclipse::tahu::protobuf::Payload& proto_payload) {
-  // Copy timestamp if present
   if (proto_payload.has_timestamp()) {
     builder.set_timestamp(proto_payload.timestamp());
   }
 
-  // Copy sequence if present
   if (proto_payload.has_seq()) {
     builder.set_seq(proto_payload.seq());
   }
 
-  // Copy all metrics
   for (const auto& metric : proto_payload.metrics()) {
     const char* name = metric.has_name() ? metric.name().c_str() : "";
     std::optional<uint64_t> alias =
         metric.has_alias() ? std::optional<uint64_t>(metric.alias()) : std::nullopt;
 
-    // Get the datatype
     auto datatype = static_cast<sparkplug::DataType>(metric.datatype());
 
-    // Add metric based on type
     switch (datatype) {
     case sparkplug::DataType::Int8:
     case sparkplug::DataType::Int16:
@@ -133,7 +127,6 @@ static void copy_metrics_to_builder(sparkplug::PayloadBuilder& builder,
       break;
 
     default:
-      // Unsupported types - skip for now
       break;
     }
   }
@@ -179,13 +172,11 @@ int sparkplug_publisher_publish_birth(sparkplug_publisher_t* pub, const uint8_t*
   if (!pub || !payload_data)
     return -1;
 
-  // Deserialize the payload
   org::eclipse::tahu::protobuf::Payload proto_payload;
   if (!proto_payload.ParseFromArray(payload_data, static_cast<int>(payload_len))) {
     return -1;
   }
 
-  // Create PayloadBuilder and copy all metrics
   sparkplug::PayloadBuilder builder;
   copy_metrics_to_builder(builder, proto_payload);
 
@@ -197,13 +188,11 @@ int sparkplug_publisher_publish_data(sparkplug_publisher_t* pub, const uint8_t* 
   if (!pub || !payload_data)
     return -1;
 
-  // Deserialize the payload
   org::eclipse::tahu::protobuf::Payload proto_payload;
   if (!proto_payload.ParseFromArray(payload_data, static_cast<int>(payload_len))) {
     return -1;
   }
 
-  // Create PayloadBuilder and copy all metrics
   sparkplug::PayloadBuilder builder;
   copy_metrics_to_builder(builder, proto_payload);
 
@@ -239,13 +228,11 @@ int sparkplug_publisher_publish_device_birth(sparkplug_publisher_t* pub, const c
   if (!pub || !device_id || !payload_data)
     return -1;
 
-  // Deserialize the payload
   org::eclipse::tahu::protobuf::Payload proto_payload;
   if (!proto_payload.ParseFromArray(payload_data, static_cast<int>(payload_len))) {
     return -1;
   }
 
-  // Create PayloadBuilder and copy all metrics
   sparkplug::PayloadBuilder builder;
   copy_metrics_to_builder(builder, proto_payload);
 
@@ -257,13 +244,11 @@ int sparkplug_publisher_publish_device_data(sparkplug_publisher_t* pub, const ch
   if (!pub || !device_id || !payload_data)
     return -1;
 
-  // Deserialize the payload
   org::eclipse::tahu::protobuf::Payload proto_payload;
   if (!proto_payload.ParseFromArray(payload_data, static_cast<int>(payload_len))) {
     return -1;
   }
 
-  // Create PayloadBuilder and copy all metrics
   sparkplug::PayloadBuilder builder;
   copy_metrics_to_builder(builder, proto_payload);
 
@@ -282,13 +267,11 @@ int sparkplug_publisher_publish_node_command(sparkplug_publisher_t* pub,
   if (!pub || !target_edge_node_id || !payload_data)
     return -1;
 
-  // Deserialize the payload
   org::eclipse::tahu::protobuf::Payload proto_payload;
   if (!proto_payload.ParseFromArray(payload_data, static_cast<int>(payload_len))) {
     return -1;
   }
 
-  // Create PayloadBuilder and copy all metrics
   sparkplug::PayloadBuilder builder;
   copy_metrics_to_builder(builder, proto_payload);
 
@@ -302,13 +285,11 @@ int sparkplug_publisher_publish_device_command(sparkplug_publisher_t* pub,
   if (!pub || !target_edge_node_id || !target_device_id || !payload_data)
     return -1;
 
-  // Deserialize the payload
   org::eclipse::tahu::protobuf::Payload proto_payload;
   if (!proto_payload.ParseFromArray(payload_data, static_cast<int>(payload_len))) {
     return -1;
   }
 
-  // Create PayloadBuilder and copy all metrics
   sparkplug::PayloadBuilder builder;
   copy_metrics_to_builder(builder, proto_payload);
 
@@ -336,17 +317,14 @@ sparkplug_subscriber_t* sparkplug_subscriber_create(const char* broker_url, cons
   sub->user_data = user_data;
   sub->command_user_data = nullptr;
 
-  // Create the C++ subscriber with a lambda that calls the C callback
   sparkplug::Subscriber::Config config{
       .broker_url = broker_url, .client_id = client_id, .group_id = group_id};
 
   auto message_handler = [sub](const sparkplug::Topic& topic,
                                const org::eclipse::tahu::protobuf::Payload& payload) {
-    // Serialize payload for C callback
     std::vector<uint8_t> data(payload.ByteSizeLong());
     payload.SerializeToArray(data.data(), static_cast<int>(data.size()));
 
-    // Call C callback
     auto topic_str = topic.to_string();
     sub->callback(topic_str.c_str(), data.data(), data.size(), sub->user_data);
   };
@@ -402,18 +380,15 @@ void sparkplug_subscriber_set_command_callback(sparkplug_subscriber_t* sub,
   sub->command_user_data = user_data;
 
   if (callback) {
-    // Set the C++ command callback that calls the C callback
     auto command_handler = [sub](const sparkplug::Topic& topic,
                                  const org::eclipse::tahu::protobuf::Payload& payload) {
       if (!sub->command_callback) {
         return;
       }
 
-      // Serialize payload for C callback
       std::vector<uint8_t> data(payload.ByteSizeLong());
       payload.SerializeToArray(data.data(), static_cast<int>(data.size()));
 
-      // Call C callback
       auto topic_str = topic.to_string();
       sub->command_callback(topic_str.c_str(), data.data(), data.size(), sub->command_user_data);
     };

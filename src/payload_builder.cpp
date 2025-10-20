@@ -6,7 +6,6 @@
 namespace sparkplug {
 
 PayloadBuilder::PayloadBuilder() {
-  // Set default timestamp to current time
   auto now = std::chrono::system_clock::now();
   auto timestamp =
       std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -14,7 +13,6 @@ PayloadBuilder::PayloadBuilder() {
 }
 
 std::vector<uint8_t> PayloadBuilder::build() const {
-  // Ensure payload has a timestamp
   auto payload_copy = payload_;
   if (!timestamp_explicitly_set_ && !payload_copy.has_timestamp()) {
     auto now = std::chrono::system_clock::now();

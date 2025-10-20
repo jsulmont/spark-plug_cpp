@@ -48,13 +48,11 @@ void on_disconnect_failure(void* context, MQTTAsync_failureData* response) {
 
 } // namespace
 
-// Fix initialization order to match declaration
 Subscriber::Subscriber(Config config, MessageCallback callback)
     : callback_(std::move(callback)), config_(std::move(config)) {
 }
 
 Subscriber::~Subscriber() {
-  // unique_ptr will automatically call MQTTAsyncDeleter
 }
 
 Subscriber::Subscriber(Subscriber&& other) noexcept
@@ -83,14 +81,12 @@ bool Subscriber::validate_message(const Topic& topic,
 
   switch (topic.message_type) {
   case MessageType::NBIRTH: {
-    // NBIRTH must have seq = 0
     if (payload.has_seq() && payload.seq() != 0) {
       std::cerr << "WARNING: NBIRTH for " << node_id << " has invalid seq: " << payload.seq()
                 << " (expected 0)\n";
       return false;
     }
 
-    // Extract bdSeq from metrics
     uint64_t bd_seq = 0;
     bool has_bdseq = false;
     for (const auto& metric : payload.metrics()) {
@@ -116,7 +112,6 @@ bool Subscriber::validate_message(const Topic& topic,
   }
 
   case MessageType::NDEATH: {
-    // Extract bdSeq from metrics
     uint64_t bd_seq = 0;
     for (const auto& metric : payload.metrics()) {
       if (metric.name() == "bdSeq") {
@@ -125,7 +120,6 @@ bool Subscriber::validate_message(const Topic& topic,
       }
     }
 
-    // bdSeq in NDEATH should match NBIRTH
     if (state.birth_received && bd_seq != state.bd_seq) {
       std::cerr << "WARNING: NDEATH bdSeq mismatch for " << node_id << " (NDEATH: " << bd_seq
                 << ", NBIRTH: " << state.bd_seq << ")\n";
@@ -136,13 +130,11 @@ bool Subscriber::validate_message(const Topic& topic,
   }
 
   case MessageType::NDATA: {
-    // Cannot receive NDATA before NBIRTH
     if (!state.birth_received) {
       std::cerr << "WARNING: Received NDATA for " << node_id << " before NBIRTH\n";
       return false;
     }
 
-    // Validate node sequence number
     if (payload.has_seq()) {
       uint64_t seq = payload.seq();
       uint64_t expected_seq = (state.last_seq + 1) % SEQ_NUMBER_MAX;
@@ -160,19 +152,16 @@ bool Subscriber::validate_message(const Topic& topic,
   }
 
   case MessageType::DBIRTH: {
-    // DBIRTH must come after NBIRTH
     if (!state.birth_received) {
       std::cerr << "WARNING: Received DBIRTH for device on " << node_id << " before node NBIRTH\n";
       return false;
     }
 
-    // DBIRTH sequence should be 0
     if (payload.has_seq() && payload.seq() != 0) {
       std::cerr << "WARNING: DBIRTH for device '" << topic.device_id << "' on " << node_id
                 << " has invalid seq: " << payload.seq() << " (expected 0)\n";
     }
 
-    // Track device state
     auto& device_state = state.devices[topic.device_id];
     device_state.is_online = true;
     device_state.birth_received = true;
@@ -182,14 +171,12 @@ bool Subscriber::validate_message(const Topic& topic,
   }
 
   case MessageType::DDATA: {
-    // Cannot receive DDATA before NBIRTH
     if (!state.birth_received) {
       std::cerr << "WARNING: Received DDATA for device '" << topic.device_id << "' on " << node_id
                 << " before node NBIRTH\n";
       return false;
     }
 
-    // Check if device exists and has received DBIRTH
     auto device_it = state.devices.find(topic.device_id);
     if (device_it == state.devices.end() || !device_it->second.birth_received) {
       std::cerr << "WARNING: Received DDATA for device '" << topic.device_id << "' on " << node_id
@@ -199,7 +186,6 @@ bool Subscriber::validate_message(const Topic& topic,
 
     auto& device_state = device_it->second;
 
-    // Validate device sequence number (separate from node sequence)
     if (payload.has_seq()) {
       uint64_t seq = payload.seq();
       uint64_t expected_seq = (device_state.last_seq + 1) % SEQ_NUMBER_MAX;
@@ -217,7 +203,6 @@ bool Subscriber::validate_message(const Topic& topic,
   }
 
   case MessageType::DDEATH: {
-    // Mark device as offline
     auto device_it = state.devices.find(topic.device_id);
     if (device_it != state.devices.end()) {
       device_it->second.is_online = false;
@@ -228,7 +213,6 @@ bool Subscriber::validate_message(const Topic& topic,
   case MessageType::NCMD:
   case MessageType::DCMD:
   case MessageType::STATE:
-    // These message types don't require sequence validation
     return true;
   }
   std::unreachable();
@@ -236,7 +220,6 @@ bool Subscriber::validate_message(const Topic& topic,
 
 void Subscriber::update_node_state(const Topic& topic,
                                    const org::eclipse::tahu::protobuf::Payload& payload) {
-  // Update tracked state based on message
   validate_message(topic, payload);
 }
 
@@ -260,10 +243,8 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
 
   // Handle STATE messages (plain text, not Sparkplug B)
   if (topic_str.starts_with("STATE/")) {
-    // STATE messages are plain UTF-8 strings
     std::string state_value(static_cast<char*>(message->payload), message->payloadlen);
 
-    // Create a dummy payload for STATE - not used by Sparkplug B encoding
     org::eclipse::tahu::protobuf::Payload dummy_payload;
 
     Topic state_topic{.group_id = "",
@@ -274,7 +255,6 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
     try {
       subscriber->callback_(state_topic, dummy_payload);
     } catch (...) {
-      // Ignore exceptions from user code
     }
 
     MQTTAsync_freeMessage(&message);
@@ -299,25 +279,20 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
     return 1;
   }
 
-  // Validate and update state
   subscriber->update_node_state(*topic_result, payload);
 
-  // Call command callback if this is a command message
   if ((topic_result->message_type == MessageType::NCMD ||
        topic_result->message_type == MessageType::DCMD) &&
       subscriber->command_callback_) {
     try {
       subscriber->command_callback_(*topic_result, payload);
     } catch (...) {
-      // Ignore exceptions from user code
     }
   }
 
-  // Call general message callback
   try {
     subscriber->callback_(*topic_result, payload);
   } catch (...) {
-    // Ignore exceptions from user code
   }
 
   MQTTAsync_freeMessage(&message);
@@ -348,7 +323,6 @@ std::expected<void, std::string> Subscriber::connect() {
     return std::unexpected(std::format("Failed to set callbacks: {}", rc));
   }
 
-  // Use promise/future for async completion instead of polling
   std::promise<void> connect_promise;
   auto connect_future = connect_promise.get_future();
 
@@ -364,13 +338,11 @@ std::expected<void, std::string> Subscriber::connect() {
     return std::unexpected(std::format("Failed to connect: {}", rc));
   }
 
-  // Wait for connection with timeout (no busy-wait polling)
   auto status = connect_future.wait_for(std::chrono::milliseconds(CONNECTION_TIMEOUT_MS));
   if (status == std::future_status::timeout) {
     return std::unexpected("Connection timeout");
   }
 
-  // Retrieve result (may throw exception from callback)
   try {
     connect_future.get();
   } catch (const std::exception& e) {
@@ -385,7 +357,6 @@ std::expected<void, std::string> Subscriber::disconnect() {
     return std::unexpected("Not connected");
   }
 
-  // Use promise/future for async completion instead of polling
   std::promise<void> disconnect_promise;
   auto disconnect_future = disconnect_promise.get_future();
 
@@ -400,18 +371,14 @@ std::expected<void, std::string> Subscriber::disconnect() {
     return std::unexpected(std::format("Failed to disconnect: {}", rc));
   }
 
-  // Wait for disconnection with timeout (no busy-wait polling)
   auto status = disconnect_future.wait_for(std::chrono::milliseconds(DISCONNECT_TIMEOUT_MS));
   if (status == std::future_status::timeout) {
-    // Timeout is not fatal for disconnect - just continue
     return {};
   }
 
-  // Retrieve result (may throw exception from callback)
   try {
     disconnect_future.get();
   } catch (const std::exception&) {
-    // Ignore disconnect failures - we're disconnecting anyway
   }
 
   return {};
@@ -470,7 +437,6 @@ std::expected<void, std::string> Subscriber::subscribe_state(std::string_view ho
 
 std::optional<std::reference_wrapper<const Subscriber::NodeState>>
 Subscriber::get_node_state(std::string_view edge_node_id) const {
-  // Heterogeneous lookup - no temporary string created
   auto it = node_states_.find(edge_node_id);
   if (it != node_states_.end()) {
     return std::cref(it->second);

@@ -64,7 +64,6 @@ Publisher::~Publisher() {
   if (client_ && is_connected_) {
     (void)disconnect();
   }
-  // unique_ptr will automatically call MQTTAsyncDeleter
 }
 
 Publisher::Publisher(Publisher&& other) noexcept
@@ -104,7 +103,6 @@ std::expected<void, std::string> Publisher::connect() {
   death_payload.add_metric("bdSeq", bd_seq_num_);
   death_payload_data_ = death_payload.build();
 
-  // Setup connection options with async callbacks
   MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
   conn_opts.keepAliveInterval = config_.keep_alive_interval;
   conn_opts.cleansession = config_.clean_session;
@@ -129,7 +127,6 @@ std::expected<void, std::string> Publisher::connect() {
 
   conn_opts.will = &will;
 
-  // Use promise/future for async completion instead of polling
   std::promise<void> connect_promise;
   auto connect_future = connect_promise.get_future();
 
@@ -137,19 +134,16 @@ std::expected<void, std::string> Publisher::connect() {
   conn_opts.onSuccess = on_connect_success;
   conn_opts.onFailure = on_connect_failure;
 
-  // Connect to broker
   rc = MQTTAsync_connect(client_.get(), &conn_opts);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to connect: {}", rc));
   }
 
-  // Wait for connection with timeout (no busy-wait polling)
   auto status = connect_future.wait_for(std::chrono::milliseconds(CONNECTION_TIMEOUT_MS));
   if (status == std::future_status::timeout) {
     return std::unexpected("Connection timeout");
   }
 
-  // Retrieve result (may throw exception from callback)
   try {
     connect_future.get();
   } catch (const std::exception& e) {
@@ -165,7 +159,6 @@ std::expected<void, std::string> Publisher::disconnect() {
     return std::unexpected("Not connected");
   }
 
-  // Use promise/future for async completion instead of polling
   std::promise<void> disconnect_promise;
   auto disconnect_future = disconnect_promise.get_future();
 
@@ -180,19 +173,15 @@ std::expected<void, std::string> Publisher::disconnect() {
     return std::unexpected(std::format("Failed to disconnect: {}", rc));
   }
 
-  // Wait for disconnection with timeout (no busy-wait polling)
   auto status = disconnect_future.wait_for(std::chrono::milliseconds(DISCONNECT_TIMEOUT_MS));
   if (status == std::future_status::timeout) {
-    // Timeout is not fatal for disconnect - just log and continue
     is_connected_ = false;
     return {};
   }
 
-  // Retrieve result (may throw exception from callback)
   try {
     disconnect_future.get();
   } catch (const std::exception&) {
-    // Ignore disconnect failures - we're disconnecting anyway
   }
 
   is_connected_ = false;
@@ -313,17 +302,14 @@ std::expected<void, std::string> Publisher::rebirth() {
     return std::unexpected("No previous birth payload stored");
   }
 
-  // Parse stored birth payload to extract metrics
   org::eclipse::tahu::protobuf::Payload proto_payload;
   if (!proto_payload.ParseFromArray(last_birth_payload_.data(),
                                     static_cast<int>(last_birth_payload_.size()))) {
     return std::unexpected("Failed to parse stored birth payload");
   }
 
-  // Increment bdSeq for new session
   bd_seq_num_++;
 
-  // Update bdSeq metric in payload
   for (auto& metric : *proto_payload.mutable_metrics()) {
     if (metric.name() == "bdSeq") {
       metric.set_long_value(bd_seq_num_);
@@ -333,7 +319,6 @@ std::expected<void, std::string> Publisher::rebirth() {
 
   proto_payload.set_seq(0);
 
-  // Serialize updated payload for reconnection
   std::vector<uint8_t> payload_data(proto_payload.ByteSizeLong());
   proto_payload.SerializeToArray(payload_data.data(), static_cast<int>(payload_data.size()));
   last_birth_payload_ = payload_data;
@@ -349,7 +334,6 @@ std::expected<void, std::string> Publisher::rebirth() {
     return conn_result;
   }
 
-  // Send new NBIRTH with updated bdSeq
   Topic topic{.group_id = config_.group_id,
               .message_type = MessageType::NBIRTH,
               .edge_node_id = config_.edge_node_id,
@@ -375,7 +359,6 @@ std::expected<void, std::string> Publisher::publish_device_birth(std::string_vie
     return std::unexpected("Must publish NBIRTH before DBIRTH");
   }
 
-  // Device sequence starts at 0 for DBIRTH
   payload.set_seq(0);
 
   Topic topic{.group_id = config_.group_id,
@@ -390,7 +373,6 @@ std::expected<void, std::string> Publisher::publish_device_birth(std::string_vie
     return result;
   }
 
-  // Track device state (heterogeneous lookup - no temporary string created)
   auto& device_state = device_states_[std::string(device_id)];
   device_state.seq_num = 0;
   device_state.last_birth_payload = payload_data;
@@ -405,7 +387,6 @@ std::expected<void, std::string> Publisher::publish_device_data(std::string_view
     return std::unexpected("Not connected");
   }
 
-  // Heterogeneous lookup - no temporary string created
   auto it = device_states_.find(device_id);
   if (it == device_states_.end() || !it->second.is_online) {
     return std::unexpected(
@@ -413,8 +394,6 @@ std::expected<void, std::string> Publisher::publish_device_data(std::string_view
   }
 
   auto& device_state = it->second;
-
-  // Increment device sequence (0-255, wraps at 256)
   device_state.seq_num = (device_state.seq_num + 1) % SEQ_NUMBER_MAX;
 
   if (!payload.has_seq()) {
@@ -435,13 +414,11 @@ std::expected<void, std::string> Publisher::publish_device_death(std::string_vie
     return std::unexpected("Not connected");
   }
 
-  // Heterogeneous lookup - no temporary string created
   auto it = device_states_.find(device_id);
   if (it == device_states_.end()) {
     return std::unexpected(std::format("Unknown device: '{}'", device_id));
   }
 
-  // DDEATH has empty payload (or optionally just timestamp)
   PayloadBuilder death_payload;
 
   Topic topic{.group_id = config_.group_id,
@@ -455,9 +432,7 @@ std::expected<void, std::string> Publisher::publish_device_death(std::string_vie
     return result;
   }
 
-  // Mark device as offline
   it->second.is_online = false;
-
   return {};
 }
 
