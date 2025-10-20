@@ -16,19 +16,101 @@ void signal_handler(int signum) {
 void on_message(const char* topic, const uint8_t* payload_data, size_t payload_len,
                 void* user_data) {
   (void)user_data;
-  (void)payload_data;
 
   printf("\n=== Message Received ===\n");
   printf("Topic: %s\n", topic);
   printf("Payload size: %zu bytes\n", payload_len);
 
-  // For a real application, you would:
-  // 1. Parse the protobuf payload
-  // 2. Extract metrics
-  // 3. Process the data
+  // Parse the protobuf payload
+  sparkplug_payload_t* payload = sparkplug_payload_parse(payload_data, payload_len);
+  if (!payload) {
+    fprintf(stderr, "Failed to parse payload\n");
+    return;
+  }
 
-  // For this example, we'll just show we received it
+  // Get payload-level fields
+  uint64_t timestamp;
+  if (sparkplug_payload_get_timestamp(payload, &timestamp)) {
+    printf("Timestamp: %llu\n", (unsigned long long)timestamp);
+  }
+
+  uint64_t seq;
+  if (sparkplug_payload_get_seq(payload, &seq)) {
+    printf("Sequence: %llu\n", (unsigned long long)seq);
+  }
+
+  const char* uuid = sparkplug_payload_get_uuid(payload);
+  if (uuid) {
+    printf("UUID: %s\n", uuid);
+  }
+
+  // Print all metrics
+  size_t metric_count = sparkplug_payload_get_metric_count(payload);
+  printf("Metrics (%zu):\n", metric_count);
+
+  for (size_t i = 0; i < metric_count; i++) {
+    sparkplug_metric_t metric;
+    if (!sparkplug_payload_get_metric_at(payload, i, &metric)) {
+      fprintf(stderr, "Failed to get metric at index %zu\n", i);
+      continue;
+    }
+
+    // Print metric name or alias
+    printf("  [%zu] ", i);
+    if (metric.has_name) {
+      printf("%s", metric.name);
+    } else if (metric.has_alias) {
+      printf("<alias %llu>", (unsigned long long)metric.alias);
+    } else {
+      printf("<unnamed>");
+    }
+
+    // Print value
+    if (metric.is_null) {
+      printf(" = NULL\n");
+    } else {
+      printf(" = ");
+      switch (metric.datatype) {
+      case SPARKPLUG_DATA_TYPE_INT8:
+      case SPARKPLUG_DATA_TYPE_INT16:
+      case SPARKPLUG_DATA_TYPE_INT32:
+        printf("%d (int32)\n", metric.value.int32_value);
+        break;
+      case SPARKPLUG_DATA_TYPE_INT64:
+        printf("%lld (int64)\n", (long long)metric.value.int64_value);
+        break;
+      case SPARKPLUG_DATA_TYPE_UINT8:
+      case SPARKPLUG_DATA_TYPE_UINT16:
+      case SPARKPLUG_DATA_TYPE_UINT32:
+        printf("%u (uint32)\n", metric.value.uint32_value);
+        break;
+      case SPARKPLUG_DATA_TYPE_UINT64:
+        printf("%llu (uint64)\n", (unsigned long long)metric.value.uint64_value);
+        break;
+      case SPARKPLUG_DATA_TYPE_FLOAT:
+        printf("%f (float)\n", metric.value.float_value);
+        break;
+      case SPARKPLUG_DATA_TYPE_DOUBLE:
+        printf("%f (double)\n", metric.value.double_value);
+        break;
+      case SPARKPLUG_DATA_TYPE_BOOLEAN:
+        printf("%s (bool)\n", metric.value.boolean_value ? "true" : "false");
+        break;
+      case SPARKPLUG_DATA_TYPE_STRING:
+      case SPARKPLUG_DATA_TYPE_TEXT:
+        printf("\"%s\" (string)\n", metric.value.string_value);
+        break;
+      default:
+        printf("<unsupported type %d>\n", metric.datatype);
+        break;
+      }
+    }
+  }
+
   printf("========================\n");
+
+  // Clean up
+  sparkplug_payload_destroy(payload);
 }
 
 int main(void) {

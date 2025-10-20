@@ -109,8 +109,8 @@ int main() {
   auto publisher = std::make_shared<sparkplug::Publisher>(std::move(pub_config));
 
   // Create subscriber for listening to commands
-  auto command_callback = [&publisher](const sparkplug::Topic& topic,
-                                       const org::eclipse::tahu::protobuf::Payload& payload) {
+  auto command_callback = [](const sparkplug::Topic& topic,
+                             const org::eclipse::tahu::protobuf::Payload& payload) {
     std::cout << "\n[EDGE NODE] Received command: " << topic.to_string() << "\n";
 
     if (topic.message_type == sparkplug::MessageType::NCMD) {

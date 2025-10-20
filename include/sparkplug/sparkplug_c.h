@@ -456,6 +456,153 @@ void sparkplug_payload_add_bool_by_alias(sparkplug_payload_t* payload, uint64_t 
 size_t sparkplug_payload_serialize(const sparkplug_payload_t* payload, uint8_t* buffer,
                                    size_t buffer_size);
 
+/* ============================================================================
+ * Payload Parsing and Reading API
+ * ========================================================================= */
+
+/**
+ * @brief Parses a Sparkplug payload from binary protobuf format.
+ *
+ * @param data Binary protobuf data
+ * @param data_len Length of data in bytes
+ *
+ * @return Payload handle on success, NULL on parse failure
+ *
+ * @note Caller must call sparkplug_payload_destroy() to free resources.
+ * @note The returned payload can be used with all sparkplug_payload_get_* functions.
+ */
+sparkplug_payload_t* sparkplug_payload_parse(const uint8_t* data, size_t data_len);
+
+/**
+ * @brief Gets the payload-level timestamp.
+ *
+ * @param payload Payload handle
+ * @param out_timestamp Pointer to receive timestamp value
+ *
+ * @return true if timestamp is present, false otherwise
+ */
+bool sparkplug_payload_get_timestamp(const sparkplug_payload_t* payload, uint64_t* out_timestamp);
+
+/**
+ * @brief Gets the payload-level sequence number.
+ *
+ * @param payload Payload handle
+ * @param out_seq Pointer to receive sequence value
+ *
+ * @return true if sequence is present, false otherwise
+ */
+bool sparkplug_payload_get_seq(const sparkplug_payload_t* payload, uint64_t* out_seq);
+
+/**
+ * @brief Gets the payload UUID.
+ *
+ * @param payload Payload handle
+ *
+ * @return UUID string (owned by payload, valid until sparkplug_payload_destroy()), or NULL if not
+ * present
+ */
+const char* sparkplug_payload_get_uuid(const sparkplug_payload_t* payload);
+
+/**
+ * @brief Gets the number of metrics in the payload.
+ *
+ * @param payload Payload handle
+ *
+ * @return Number of metrics (0 if payload is NULL)
+ */
+size_t sparkplug_payload_get_metric_count(const sparkplug_payload_t* payload);
+
+/**
+ * @brief Sparkplug data types enum.
+ */
+typedef enum {
+  SPARKPLUG_DATA_TYPE_UNKNOWN = 0,
+  SPARKPLUG_DATA_TYPE_INT8 = 1,
+  SPARKPLUG_DATA_TYPE_INT16 = 2,
+  SPARKPLUG_DATA_TYPE_INT32 = 3,
+  SPARKPLUG_DATA_TYPE_INT64 = 4,
+  SPARKPLUG_DATA_TYPE_UINT8 = 5,
+  SPARKPLUG_DATA_TYPE_UINT16 = 6,
+  SPARKPLUG_DATA_TYPE_UINT32 = 7,
+  SPARKPLUG_DATA_TYPE_UINT64 = 8,
+  SPARKPLUG_DATA_TYPE_FLOAT = 9,
+  SPARKPLUG_DATA_TYPE_DOUBLE = 10,
+  SPARKPLUG_DATA_TYPE_BOOLEAN = 11,
+  SPARKPLUG_DATA_TYPE_STRING = 12,
+  SPARKPLUG_DATA_TYPE_DATETIME = 13,
+  SPARKPLUG_DATA_TYPE_TEXT = 14,
+} sparkplug_data_type_t;
+
+/**
+ * @brief Metric value union.
+ *
+ * @note Check the datatype field to determine which union member is valid.
+ */
+typedef union {
+  int8_t int8_value;
+  int16_t int16_value;
+  int32_t int32_value;
+  int64_t int64_value;
+  uint8_t uint8_value;
+  uint16_t uint16_value;
+  uint32_t uint32_value;
+  uint64_t uint64_value;
+  float float_value;
+  double double_value;
+  bool boolean_value;
+  const char* string_value; /** Owned by payload, valid until sparkplug_payload_destroy() */
+} sparkplug_metric_value_t;
+
+/**
+ * @brief Metric information struct.
+ *
+ * @note String pointers (name, string_value) are owned by the payload and valid until
+ * sparkplug_payload_destroy() is called.
+ */
+typedef struct {
+  const char* name;               /** Metric name, or NULL if not present */
+  uint64_t alias;                 /** Metric alias */
+  uint64_t timestamp;             /** Metric timestamp */
+  sparkplug_data_type_t datatype; /** Data type */
+  bool has_name;                  /** True if name is present */
+  bool has_alias;                 /** True if alias is present */
+  bool has_timestamp;             /** True if timestamp is present */
+  bool is_null;                   /** True if value is explicitly null */
+  sparkplug_metric_value_t value; /** Metric value (only valid if !is_null) */
+} sparkplug_metric_t;
+
+/**
+ * @brief Gets information about a metric at a specific index.
+ *
+ * @param payload Payload handle
+ * @param index Metric index (0 to metric_count - 1)
+ * @param out_metric Pointer to receive metric information
+ *
+ * @return true on success, false if index is out of bounds or payload is NULL
+ *
+ * @note The returned pointers in out_metric are valid until sparkplug_payload_destroy() is called.
+ *
+ * @par Example
+ * @code
+ * sparkplug_metric_t metric;
+ * if (sparkplug_payload_get_metric_at(payload, 0, &metric)) {
+ *     printf("Name: %s\n", metric.has_name ? metric.name : "<no name>");
+ *     if (!metric.is_null) {
+ *         switch (metric.datatype) {
+ *             case SPARKPLUG_DATA_TYPE_DOUBLE:
+ *                 printf("Value: %f\n", metric.value.double_value);
+ *                 break;
+ *             case SPARKPLUG_DATA_TYPE_BOOLEAN:
+ *                 printf("Value: %s\n", metric.value.boolean_value ? "true" : "false");
+ *                 break;
+ *         }
+ *     }
+ * }
+ * @endcode
+ */
+bool sparkplug_payload_get_metric_at(const sparkplug_payload_t* payload, size_t index,
+                                     sparkplug_metric_t* out_metric);
+
 #ifdef __cplusplus
 }
 #endif

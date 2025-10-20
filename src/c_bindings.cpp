@@ -582,4 +582,153 @@ size_t sparkplug_payload_serialize(const sparkplug_payload_t* payload, uint8_t* 
   return data.size();
 }
 
+// ============================================================================
+// Payload Parsing and Reading Functions
+// ============================================================================
+
+sparkplug_payload_t* sparkplug_payload_parse(const uint8_t* data, size_t data_len) {
+  if (!data || data_len == 0)
+    return nullptr;
+
+  org::eclipse::tahu::protobuf::Payload proto_payload;
+  if (!proto_payload.ParseFromArray(data, static_cast<int>(data_len))) {
+    return nullptr;
+  }
+
+  // Create a new payload and copy the parsed data
+  auto* payload = new sparkplug_payload{sparkplug::PayloadBuilder()};
+  copy_metrics_to_builder(payload->impl, proto_payload);
+
+  return payload;
+}
+
+bool sparkplug_payload_get_timestamp(const sparkplug_payload_t* payload, uint64_t* out_timestamp) {
+  if (!payload || !out_timestamp)
+    return false;
+
+  auto& proto_payload = const_cast<sparkplug_payload_t*>(payload)->impl.mutable_payload();
+  if (proto_payload.has_timestamp()) {
+    *out_timestamp = proto_payload.timestamp();
+    return true;
+  }
+
+  return false;
+}
+
+bool sparkplug_payload_get_seq(const sparkplug_payload_t* payload, uint64_t* out_seq) {
+  if (!payload || !out_seq)
+    return false;
+
+  auto& proto_payload = const_cast<sparkplug_payload_t*>(payload)->impl.mutable_payload();
+  if (proto_payload.has_seq()) {
+    *out_seq = proto_payload.seq();
+    return true;
+  }
+
+  return false;
+}
+
+const char* sparkplug_payload_get_uuid(const sparkplug_payload_t* payload) {
+  if (!payload)
+    return nullptr;
+
+  auto& proto_payload = const_cast<sparkplug_payload_t*>(payload)->impl.mutable_payload();
+  if (proto_payload.has_uuid()) {
+    return proto_payload.uuid().c_str();
+  }
+
+  return nullptr;
+}
+
+size_t sparkplug_payload_get_metric_count(const sparkplug_payload_t* payload) {
+  if (!payload)
+    return 0;
+
+  auto& proto_payload = const_cast<sparkplug_payload_t*>(payload)->impl.mutable_payload();
+  return static_cast<size_t>(proto_payload.metrics_size());
+}
+
+bool sparkplug_payload_get_metric_at(const sparkplug_payload_t* payload, size_t index,
+                                     sparkplug_metric_t* out_metric) {
+  if (!payload || !out_metric)
+    return false;
+
+  auto& proto_payload = const_cast<sparkplug_payload_t*>(payload)->impl.mutable_payload();
+  if (index >= static_cast<size_t>(proto_payload.metrics_size())) {
+    return false;
+  }
+
+  const auto& metric = proto_payload.metrics(static_cast<int>(index));
+
+  // Clear the output struct
+  std::memset(out_metric, 0, sizeof(sparkplug_metric_t));
+
+  // Set name
+  out_metric->has_name = metric.has_name();
+  out_metric->name = out_metric->has_name ? metric.name().c_str() : nullptr;
+
+  // Set alias
+  out_metric->has_alias = metric.has_alias();
+  out_metric->alias = out_metric->has_alias ? metric.alias() : 0;
+
+  // Set timestamp
+  out_metric->has_timestamp = metric.has_timestamp();
+  out_metric->timestamp = out_metric->has_timestamp ? metric.timestamp() : 0;
+
+  // Set is_null
+  out_metric->is_null = metric.has_is_null() ? metric.is_null() : false;
+
+  // Set datatype
+  out_metric->datatype =
+      static_cast<sparkplug_data_type_t>(metric.has_datatype() ? metric.datatype() : 0);
+
+  // Set value based on datatype (only if not null)
+  if (!out_metric->is_null) {
+    switch (out_metric->datatype) {
+    case SPARKPLUG_DATA_TYPE_INT8:
+    case SPARKPLUG_DATA_TYPE_INT16:
+    case SPARKPLUG_DATA_TYPE_INT32:
+      out_metric->value.int32_value = metric.int_value();
+      break;
+
+    case SPARKPLUG_DATA_TYPE_INT64:
+      out_metric->value.int64_value = metric.long_value();
+      break;
+
+    case SPARKPLUG_DATA_TYPE_UINT8:
+    case SPARKPLUG_DATA_TYPE_UINT16:
+    case SPARKPLUG_DATA_TYPE_UINT32:
+      out_metric->value.uint32_value = static_cast<uint32_t>(metric.int_value());
+      break;
+
+    case SPARKPLUG_DATA_TYPE_UINT64:
+      out_metric->value.uint64_value = static_cast<uint64_t>(metric.long_value());
+      break;
+
+    case SPARKPLUG_DATA_TYPE_FLOAT:
+      out_metric->value.float_value = metric.float_value();
+      break;
+
+    case SPARKPLUG_DATA_TYPE_DOUBLE:
+      out_metric->value.double_value = metric.double_value();
+      break;
+
+    case SPARKPLUG_DATA_TYPE_BOOLEAN:
+      out_metric->value.boolean_value = metric.boolean_value();
+      break;
+
+    case SPARKPLUG_DATA_TYPE_STRING:
+    case SPARKPLUG_DATA_TYPE_TEXT:
+      out_metric->value.string_value = metric.string_value().c_str();
+      break;
+
+    default:
+      // Unsupported type - leave value uninitialized
+      break;
+    }
+  }
+
+  return true;
+}
+
 } // extern "C"

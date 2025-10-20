@@ -662,6 +662,172 @@ void test_subscriber_command_callback(void) {
   PASS();
 }
 
+/* Test payload parse and read */
+void test_payload_parse_and_read(void) {
+  TEST("payload parse and read");
+
+  /* Create a payload with known data */
+  sparkplug_payload_t* payload = sparkplug_payload_create();
+  assert(payload != NULL);
+
+  sparkplug_payload_set_timestamp(payload, 1234567890123ULL);
+  sparkplug_payload_set_seq(payload, 42);
+  sparkplug_payload_add_int32_with_alias(payload, "Temperature", 1, 25);
+  sparkplug_payload_add_double_with_alias(payload, "Pressure", 2, 101.325);
+  sparkplug_payload_add_bool_with_alias(payload, "Active", 3, true);
+  sparkplug_payload_add_string(payload, "Status", "Running");
+
+  /* Serialize it */
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(payload, buffer, sizeof(buffer));
+  assert(size > 0);
+
+  sparkplug_payload_destroy(payload);
+
+  /* Parse it back */
+  sparkplug_payload_t* parsed = sparkplug_payload_parse(buffer, size);
+  assert(parsed != NULL);
+
+  /* Read timestamp */
+  uint64_t timestamp;
+  assert(sparkplug_payload_get_timestamp(parsed, &timestamp));
+  assert(timestamp == 1234567890123ULL);
+
+  /* Read sequence */
+  uint64_t seq;
+  assert(sparkplug_payload_get_seq(parsed, &seq));
+  assert(seq == 42);
+
+  /* Read metric count */
+  size_t count = sparkplug_payload_get_metric_count(parsed);
+  assert(count == 4);
+
+  /* Read first metric (Temperature) */
+  sparkplug_metric_t metric;
+  assert(sparkplug_payload_get_metric_at(parsed, 0, &metric));
+  assert(metric.has_name);
+  assert(strcmp(metric.name, "Temperature") == 0);
+  assert(metric.has_alias);
+  assert(metric.alias == 1);
+  assert(metric.datatype == SPARKPLUG_DATA_TYPE_INT32);
+  assert(!metric.is_null);
+  assert(metric.value.int32_value == 25);
+
+  /* Read second metric (Pressure) */
+  assert(sparkplug_payload_get_metric_at(parsed, 1, &metric));
+  assert(metric.has_name);
+  assert(strcmp(metric.name, "Pressure") == 0);
+  assert(metric.datatype == SPARKPLUG_DATA_TYPE_DOUBLE);
+  assert(metric.value.double_value > 101.3 && metric.value.double_value < 101.4);
+
+  /* Read third metric (Active) */
+  assert(sparkplug_payload_get_metric_at(parsed, 2, &metric));
+  assert(strcmp(metric.name, "Active") == 0);
+  assert(metric.datatype == SPARKPLUG_DATA_TYPE_BOOLEAN);
+  assert(metric.value.boolean_value == true);
+
+  /* Read fourth metric (Status) */
+  assert(sparkplug_payload_get_metric_at(parsed, 3, &metric));
+  assert(strcmp(metric.name, "Status") == 0);
+  assert(metric.datatype == SPARKPLUG_DATA_TYPE_STRING);
+  assert(strcmp(metric.value.string_value, "Running") == 0);
+
+  /* Test out of bounds */
+  assert(!sparkplug_payload_get_metric_at(parsed, 4, &metric));
+
+  sparkplug_payload_destroy(parsed);
+
+  PASS();
+}
+
+/* Test parsing payload with only aliases (NDATA) */
+void test_payload_parse_alias_only(void) {
+  TEST("payload parse alias-only metrics");
+
+  /* Create NDATA-style payload with only aliases */
+  sparkplug_payload_t* payload = sparkplug_payload_create();
+  sparkplug_payload_add_int32_by_alias(payload, 1, 30);
+  sparkplug_payload_add_double_by_alias(payload, 2, 102.5);
+
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(payload, buffer, sizeof(buffer));
+  sparkplug_payload_destroy(payload);
+
+  /* Parse it */
+  sparkplug_payload_t* parsed = sparkplug_payload_parse(buffer, size);
+  assert(parsed != NULL);
+
+  size_t count = sparkplug_payload_get_metric_count(parsed);
+  assert(count == 2);
+
+  sparkplug_metric_t metric;
+  assert(sparkplug_payload_get_metric_at(parsed, 0, &metric));
+  assert(!metric.has_name); /* No name for alias-only */
+  assert(metric.has_alias);
+  assert(metric.alias == 1);
+  assert(metric.value.int32_value == 30);
+
+  sparkplug_payload_destroy(parsed);
+
+  PASS();
+}
+
+/* Test parsing invalid payload */
+void test_payload_parse_invalid(void) {
+  TEST("payload parse invalid data");
+
+  uint8_t invalid_data[] = {0xFF, 0xFF, 0xFF, 0xFF};
+  sparkplug_payload_t* parsed = sparkplug_payload_parse(invalid_data, sizeof(invalid_data));
+  assert(parsed == NULL); /* Should fail gracefully */
+
+  /* Test NULL inputs */
+  parsed = sparkplug_payload_parse(NULL, 100);
+  assert(parsed == NULL);
+
+  parsed = sparkplug_payload_parse(invalid_data, 0);
+  assert(parsed == NULL);
+
+  PASS();
+}
+
+/* Test reading payload without optional fields */
+void test_payload_parse_no_optional(void) {
+  TEST("payload parse without seq/uuid");
+
+  /* Create payload without explicitly setting seq */
+  sparkplug_payload_t* payload = sparkplug_payload_create();
+  sparkplug_payload_add_int32(payload, "Value", 100);
+  /* Note: timestamp is auto-set by PayloadBuilder constructor */
+
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(payload, buffer, sizeof(buffer));
+  sparkplug_payload_destroy(payload);
+
+  /* Parse it */
+  sparkplug_payload_t* parsed = sparkplug_payload_parse(buffer, size);
+  assert(parsed != NULL);
+
+  /* Timestamp should be present (auto-set) */
+  uint64_t timestamp;
+  assert(sparkplug_payload_get_timestamp(parsed, &timestamp));
+  assert(timestamp > 0);
+
+  /* Seq should not be present (wasn't set) */
+  uint64_t seq;
+  assert(!sparkplug_payload_get_seq(parsed, &seq));
+
+  /* UUID should be NULL (wasn't set) */
+  const char* uuid = sparkplug_payload_get_uuid(parsed);
+  assert(uuid == NULL);
+
+  /* But metric should be there */
+  assert(sparkplug_payload_get_metric_count(parsed) == 1);
+
+  sparkplug_payload_destroy(parsed);
+
+  PASS();
+}
+
 int main(void) {
   printf("=== C API Unit Tests ===\n\n");
 
@@ -672,6 +838,12 @@ int main(void) {
   test_payload_add_by_alias();
   test_payload_timestamp_seq();
   test_payload_empty();
+
+  /* NEW: Payload parsing tests */
+  test_payload_parse_and_read();
+  test_payload_parse_alias_only();
+  test_payload_parse_invalid();
+  test_payload_parse_no_optional();
 
   /* Publisher tests (require MQTT broker) */
   test_publisher_create_destroy();
