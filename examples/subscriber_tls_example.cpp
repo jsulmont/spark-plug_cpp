@@ -66,10 +66,11 @@ int main() {
   };
 
   // Configure TLS options
+  // To start test broker: ./certs/start_mosquitto_test.sh
   sparkplug::Subscriber::TlsOptions tls{
-      .trust_store = "/path/to/ca.crt",     // CA certificate (REQUIRED)
-      .key_store = "/path/to/client.crt",   // Client certificate (optional)
-      .private_key = "/path/to/client.key", // Client private key (optional)
+      .trust_store = "certs/ca.crt",     // CA certificate (REQUIRED)
+      .key_store = "certs/client.crt",   // Client certificate (optional)
+      .private_key = "certs/client.key", // Client private key (optional)
       .private_key_password = "",           // Password for encrypted key (optional)
       .enabled_cipher_suites = "",          // Custom cipher suites (optional)
       .enable_server_cert_auth = true       // Verify server certificate (default: true)

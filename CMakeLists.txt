@@ -61,6 +61,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Protobuf REQUIRED)
 find_package(absl CONFIG QUIET)  # Optional - newer protobuf needs it
+find_package(OpenSSL REQUIRED)   # Required for TLS/SSL support
 find_package(eclipse-paho-mqtt-c REQUIRED)
 
 add_subdirectory(proto)

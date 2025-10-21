@@ -20,7 +20,7 @@ target_link_libraries(sparkplug_cpp
         sparkplug_proto
         protobuf::libprotobuf
     PRIVATE
-        eclipse-paho-mqtt-c::paho-mqtt3a
+        eclipse-paho-mqtt-c::paho-mqtt3as
 )
 
 add_library(sparkplug_c SHARED
