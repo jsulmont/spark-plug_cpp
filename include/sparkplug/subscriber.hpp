@@ -104,11 +104,11 @@ public:
   struct Config {
     std::string
         broker_url; ///< MQTT broker URL (e.g., "tcp://localhost:1883" or "ssl://localhost:8883")
-    std::string client_id;         ///< Unique MQTT client identifier
-    std::string group_id;          ///< Sparkplug group ID to subscribe to
-    int qos = 1;                   ///< MQTT QoS level (0, 1, or 2)
-    bool clean_session = true;     ///< MQTT clean session flag
-    bool validate_sequence = true; ///< Enable sequence number validation (detects packet loss)
+    std::string client_id;           ///< Unique MQTT client identifier
+    std::string group_id;            ///< Sparkplug group ID to subscribe to
+    int qos = 1;                     ///< MQTT QoS level (0, 1, or 2)
+    bool clean_session = true;       ///< MQTT clean session flag
+    bool validate_sequence = true;   ///< Enable sequence number validation (detects packet loss)
     std::optional<TlsOptions> tls{}; ///< TLS/SSL options (required if broker_url uses ssl://)
   };
 
