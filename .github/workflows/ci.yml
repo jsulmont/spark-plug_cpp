@@ -27,6 +27,7 @@ jobs:
     name: Run clang-tidy checks
     runs-on: ubuntu-latest
     container: archlinux:latest
+    needs: [format-check]
 
     steps:
       - name: Checkout code
@@ -74,6 +75,7 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     container: archlinux:latest
+    needs: [tidy-check]
 
     steps:
       - name: Checkout code
