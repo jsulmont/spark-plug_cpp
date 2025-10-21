@@ -109,7 +109,7 @@ public:
     int qos = 1;                   ///< MQTT QoS level (0, 1, or 2)
     bool clean_session = true;     ///< MQTT clean session flag
     bool validate_sequence = true; ///< Enable sequence number validation (detects packet loss)
-    std::optional<TlsOptions> tls; ///< TLS/SSL options (required if broker_url uses ssl://)
+    std::optional<TlsOptions> tls{}; ///< TLS/SSL options (required if broker_url uses ssl://)
   };
 
   /**
@@ -149,7 +149,7 @@ public:
   /**
    * @brief Destroys the Subscriber and cleans up MQTT resources.
    */
-  ~Subscriber();
+  ~Subscriber() = default;
 
   Subscriber(const Subscriber&) = delete;
   Subscriber& operator=(const Subscriber&) = delete;

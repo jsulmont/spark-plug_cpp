@@ -84,7 +84,7 @@ public:
     int qos = 1;                  ///< MQTT QoS level (0, 1, or 2). Sparkplug recommends 1.
     bool clean_session = true;    ///< MQTT clean session flag
     int keep_alive_interval = 60; ///< MQTT keep-alive interval in seconds (Sparkplug recommends 60)
-    std::optional<TlsOptions> tls; ///< TLS/SSL options (required if broker_url uses ssl://)
+    std::optional<TlsOptions> tls{}; ///< TLS/SSL options (required if broker_url uses ssl://)
   };
 
   /**

@@ -688,11 +688,11 @@ bool sparkplug_payload_get_metric_at(const sparkplug_payload_t* payload, size_t 
     case SPARKPLUG_DATA_TYPE_INT8:
     case SPARKPLUG_DATA_TYPE_INT16:
     case SPARKPLUG_DATA_TYPE_INT32:
-      out_metric->value.int32_value = metric.int_value();
+      out_metric->value.int32_value = static_cast<int32_t>(metric.int_value());
       break;
 
     case SPARKPLUG_DATA_TYPE_INT64:
-      out_metric->value.int64_value = metric.long_value();
+      out_metric->value.int64_value = static_cast<int64_t>(metric.long_value());
       break;
 
     case SPARKPLUG_DATA_TYPE_UINT8:

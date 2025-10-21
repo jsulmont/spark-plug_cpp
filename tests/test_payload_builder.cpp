@@ -68,7 +68,7 @@ void test_string_type() {
   assert(pb.metrics_size() == 3);
   assert(pb.metrics(0).string_value() == "Hello, World!");
   assert(pb.metrics(1).string_value() == "C++ String");
-  assert(pb.metrics(2).string_value() == "");
+  assert(pb.metrics(2).string_value().empty());
 
   std::cout << "✓ String types (literal, std::string, empty)\n";
 }
@@ -191,7 +191,7 @@ void test_payload_sequence() {
 void test_empty_payload() {
   sparkplug::PayloadBuilder payload;
 
-  auto pb = payload.payload();
+  const auto& pb = payload.payload();
   assert(pb.metrics_size() == 0);
 
   std::cout << "✓ Empty payload\n";
@@ -263,7 +263,6 @@ void test_serialize() {
 
   auto data = payload.build();
   assert(!data.empty());
-  assert(data.size() > 0);
 
   std::cout << "✓ Payload serialization\n";
 }

@@ -52,9 +52,6 @@ Subscriber::Subscriber(Config config, MessageCallback callback)
     : callback_(std::move(callback)), config_(std::move(config)) {
 }
 
-Subscriber::~Subscriber() {
-}
-
 Subscriber::Subscriber(Subscriber&& other) noexcept
     : callback_(std::move(other.callback_)), command_callback_(std::move(other.command_callback_)),
       config_(std::move(other.config_)), client_(std::move(other.client_)),

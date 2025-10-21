@@ -23,6 +23,53 @@ jobs:
       - name: Check C++ formatting
         run: ./scripts/format.sh --check
 
+  tidy-check:
+    name: Run clang-tidy checks
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            base-devel \
+            clang \
+            cmake \
+            ninja \
+            git \
+            protobuf \
+            abseil-cpp \
+            openssl
+
+      - name: Build and install Paho MQTT C
+        run: |
+          git clone --depth 1 --branch v1.3.15 https://github.com/eclipse/paho.mqtt.c.git
+          cd paho.mqtt.c
+          cmake -Bbuild -H. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPAHO_WITH_SSL=TRUE \
+            -DPAHO_BUILD_STATIC=ON \
+            -DPAHO_BUILD_SHARED=ON \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake --build build -j$(nproc)
+          cmake --install build
+
+      - name: Configure CMake
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake --preset default
+
+      - name: Build (for compile_commands.json)
+        run: cmake --build build -j$(nproc)
+
+      - name: Run clang-tidy
+        run: ./scripts/tidy.sh --quiet
+
   build-and-test:
     name: Build and test
     runs-on: ubuntu-latest

@@ -122,7 +122,7 @@ int main() {
           std::cout << "[EDGE NODE]   -> Executing REBIRTH\n";
           do_rebirth = true;
         } else if (metric.name() == "Node Control/Scan Rate") {
-          int64_t new_rate = metric.long_value();
+          int64_t new_rate = static_cast<int64_t>(metric.long_value());
           std::cout << "[EDGE NODE]   -> Changing scan rate to " << new_rate << "ms\n";
           scan_rate_ms = new_rate;
         } else if (metric.name() == "Node Control/Reboot" && metric.boolean_value()) {

@@ -96,6 +96,8 @@ int main() {
   }
   std::cout << "\n";
 
+  // Save group_id before moving config
+  std::string group_id = config.group_id;
   sparkplug::Subscriber subscriber(std::move(config), callback);
 
   // Connect to broker with TLS
@@ -120,7 +122,7 @@ int main() {
     return 1;
   }
 
-  std::cout << "Subscribed to: spBv1.0/" << config.group_id << "/#\n";
+  std::cout << "Subscribed to: spBv1.0/" << group_id << "/#\n";
   std::cout << "Waiting for secure messages (Ctrl+C to stop)...\n";
 
   // Keep running until interrupted

@@ -216,7 +216,7 @@ void test_multiple_commands() {
         if (metric.name() == "Node Control/Rebirth") {
           rebirth_cmd = metric.boolean_value();
         } else if (metric.name() == "Node Control/Scan Rate") {
-          scan_rate = metric.long_value();
+          scan_rate = static_cast<int64_t>(metric.long_value());
         }
       }
     }
