@@ -4,6 +4,7 @@ add_library(sparkplug_cpp
     publisher.cpp
     subscriber.cpp
     topic.cpp
+    host_application.cpp
 )
 
 # Enable PIC for linking into shared libraries

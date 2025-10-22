@@ -1,4 +1,5 @@
 // src/c_bindings.cpp
+#include "sparkplug/host_application.hpp"
 #include "sparkplug/payload_builder.hpp"
 #include "sparkplug/publisher.hpp"
 #include "sparkplug/sparkplug_c.h"
@@ -21,6 +22,10 @@ struct sparkplug_subscriber {
 
 struct sparkplug_payload {
   sparkplug::PayloadBuilder impl;
+};
+
+struct sparkplug_host_application {
+  sparkplug::HostApplication impl;
 };
 
 static void copy_metrics_to_builder(sparkplug::PayloadBuilder& builder,
@@ -749,6 +754,121 @@ bool sparkplug_payload_get_metric_at(const sparkplug_payload_t* payload, size_t 
   }
 
   return true;
+}
+
+/* ============================================================================
+ * Host Application API Implementation
+ * ========================================================================= */
+
+sparkplug_host_application_t* sparkplug_host_application_create(const char* broker_url,
+                                                                const char* client_id,
+                                                                const char* host_id,
+                                                                const char* group_id) {
+  if (!broker_url || !client_id || !host_id || !group_id) {
+    return nullptr;
+  }
+
+  try {
+    sparkplug::HostApplication::Config config{
+        .broker_url = broker_url, .client_id = client_id, .host_id = host_id, .group_id = group_id};
+
+    auto* host =
+        new sparkplug_host_application{.impl = sparkplug::HostApplication(std::move(config))};
+    return host;
+  } catch (...) {
+    return nullptr;
+  }
+}
+
+void sparkplug_host_application_destroy(sparkplug_host_application_t* host) {
+  delete host;
+}
+
+int sparkplug_host_application_connect(sparkplug_host_application_t* host) {
+  if (!host) {
+    return -1;
+  }
+
+  auto result = host->impl.connect();
+  return result.has_value() ? 0 : -1;
+}
+
+int sparkplug_host_application_disconnect(sparkplug_host_application_t* host) {
+  if (!host) {
+    return -1;
+  }
+
+  auto result = host->impl.disconnect();
+  return result.has_value() ? 0 : -1;
+}
+
+int sparkplug_host_application_publish_state_birth(sparkplug_host_application_t* host,
+                                                   uint64_t timestamp) {
+  if (!host) {
+    return -1;
+  }
+
+  auto result = host->impl.publish_state_birth(timestamp);
+  return result.has_value() ? 0 : -1;
+}
+
+int sparkplug_host_application_publish_state_death(sparkplug_host_application_t* host,
+                                                   uint64_t timestamp) {
+  if (!host) {
+    return -1;
+  }
+
+  auto result = host->impl.publish_state_death(timestamp);
+  return result.has_value() ? 0 : -1;
+}
+
+int sparkplug_host_application_publish_node_command(sparkplug_host_application_t* host,
+                                                    const char* target_edge_node_id,
+                                                    const uint8_t* payload_data,
+                                                    size_t payload_len) {
+  if (!host || !target_edge_node_id || !payload_data) {
+    return -1;
+  }
+
+  try {
+    org::eclipse::tahu::protobuf::Payload proto_payload;
+    if (!proto_payload.ParseFromArray(payload_data, static_cast<int>(payload_len))) {
+      return -1;
+    }
+
+    sparkplug::PayloadBuilder builder;
+    copy_metrics_to_builder(builder, proto_payload);
+
+    auto result = host->impl.publish_node_command(target_edge_node_id, builder);
+    return result.has_value() ? 0 : -1;
+  } catch (...) {
+    return -1;
+  }
+}
+
+int sparkplug_host_application_publish_device_command(sparkplug_host_application_t* host,
+                                                      const char* target_edge_node_id,
+                                                      const char* target_device_id,
+                                                      const uint8_t* payload_data,
+                                                      size_t payload_len) {
+  if (!host || !target_edge_node_id || !target_device_id || !payload_data) {
+    return -1;
+  }
+
+  try {
+    org::eclipse::tahu::protobuf::Payload proto_payload;
+    if (!proto_payload.ParseFromArray(payload_data, static_cast<int>(payload_len))) {
+      return -1;
+    }
+
+    sparkplug::PayloadBuilder builder;
+    copy_metrics_to_builder(builder, proto_payload);
+
+    auto result = host->impl.publish_device_command(target_edge_node_id, target_device_id, builder);
+    return result.has_value() ? 0 : -1;
+  } catch (...) {
+    return -1;
+  }
 }
 
 } // extern "C"

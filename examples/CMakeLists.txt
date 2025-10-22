@@ -11,6 +11,9 @@ target_link_libraries(publisher_device_example PRIVATE sparkplug_cpp)
 add_executable(command_handling_example command_handling_example.cpp)
 target_link_libraries(command_handling_example PRIVATE sparkplug_cpp)
 
+add_executable(host_application_example host_application_example.cpp)
+target_link_libraries(host_application_example PRIVATE sparkplug_cpp)
+
 add_executable(subscriber_example subscriber_example.cpp)
 target_link_libraries(subscriber_example PRIVATE sparkplug_cpp)
 
