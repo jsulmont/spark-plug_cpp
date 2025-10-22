@@ -102,13 +102,12 @@ int main(int argc, char* argv[]) {
   std::signal(SIGINT, signal_handler);
   std::signal(SIGTERM, signal_handler);
 
-  sparkplug::Subscriber::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "sparkplug_multi_group_cli",
-      .group_id = groups[0],
-      .qos = 1,
-      .clean_session = true,
-      .validate_sequence = true};
+  sparkplug::Subscriber::Config config{.broker_url = "tcp://localhost:1883",
+                                       .client_id = "sparkplug_multi_group_cli",
+                                       .group_id = groups[0],
+                                       .qos = 1,
+                                       .clean_session = true,
+                                       .validate_sequence = true};
 
   auto message_handler = [](const sparkplug::Topic& topic,
                             const org::eclipse::tahu::protobuf::Payload& payload) {

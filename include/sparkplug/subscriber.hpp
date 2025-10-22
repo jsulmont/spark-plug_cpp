@@ -327,8 +327,9 @@ private:
     [[nodiscard]] bool operator()(const NodeKey& lhs, const NodeKey& rhs) const noexcept {
       return lhs == rhs;
     }
-    [[nodiscard]] bool operator()(const NodeKey& lhs,
-                                  std::pair<std::string_view, std::string_view> rhs) const noexcept {
+    [[nodiscard]] bool
+    operator()(const NodeKey& lhs,
+               std::pair<std::string_view, std::string_view> rhs) const noexcept {
       return lhs.group_id == rhs.first && lhs.edge_node_id == rhs.second;
     }
     [[nodiscard]] bool operator()(std::pair<std::string_view, std::string_view> lhs,
