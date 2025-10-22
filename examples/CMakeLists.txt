@@ -26,6 +26,13 @@ target_link_libraries(publisher_tls_example PRIVATE sparkplug_cpp)
 add_executable(subscriber_tls_example subscriber_tls_example.cpp)
 target_link_libraries(subscriber_tls_example PRIVATE sparkplug_cpp)
 
+# Torture test examples
+add_executable(torture_test_publisher torture_test_publisher.cpp)
+target_link_libraries(torture_test_publisher PRIVATE sparkplug_cpp)
+
+add_executable(torture_test_subscriber torture_test_subscriber.cpp)
+target_link_libraries(torture_test_subscriber PRIVATE sparkplug_cpp)
+
 # C API examples
 add_executable(publisher_example_c publisher_example_c.c)
 target_link_libraries(publisher_example_c PRIVATE sparkplug_c)
