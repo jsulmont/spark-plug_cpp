@@ -135,7 +135,8 @@ std::expected<void, std::string> Publisher::connect() {
   }
 
   // Setup Last Will and Testament (NDEATH)
-  MQTTAsync_willOptions will = MQTTAsync_willOptions_initializer;
+  // Initialize will options as member variable (must outlive async connect)
+  will_opts_ = MQTTAsync_willOptions_initializer;
 
   Topic death_topic{.group_id = config_.group_id,
                     .message_type = MessageType::NDEATH,
@@ -144,15 +145,15 @@ std::expected<void, std::string> Publisher::connect() {
 
   // Store as member variable to keep string alive for async MQTT operations
   death_topic_str_ = death_topic.to_string();
-  will.topicName = death_topic_str_.c_str();
+  will_opts_.topicName = death_topic_str_.c_str();
 
   // Use payload.data/len for binary protobuf data
-  will.payload.data = death_payload_data_.data();
-  will.payload.len = static_cast<int>(death_payload_data_.size());
-  will.retained = 0;
-  will.qos = config_.qos;
+  will_opts_.payload.data = death_payload_data_.data();
+  will_opts_.payload.len = static_cast<int>(death_payload_data_.size());
+  will_opts_.retained = 0;
+  will_opts_.qos = config_.qos;
 
-  conn_opts.will = &will;
+  conn_opts.will = &will_opts_;
 
   std::promise<void> connect_promise;
   auto connect_future = connect_promise.get_future();

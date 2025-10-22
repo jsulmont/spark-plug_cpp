@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <MQTTAsync.h>
+
 namespace sparkplug {
 
 /**
@@ -345,7 +347,8 @@ private:
 
   // Store the NDEATH payload for the MQTT Will
   std::vector<uint8_t> death_payload_data_;
-  std::string death_topic_str_; // Topic string for MQTT Will (must outlive async connect)
+  std::string death_topic_str_;     // Topic string for MQTT Will (must outlive async connect)
+  MQTTAsync_willOptions will_opts_; // Will options struct (must outlive async connect)
 
   // Store last NBIRTH for rebirth command
   std::vector<uint8_t> last_birth_payload_;
