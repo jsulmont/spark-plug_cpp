@@ -16,7 +16,7 @@ A modern C++23 implementation of the Eclipse Sparkplug B 2.2 specification for I
 
 ## Documentation
 
-Full API documentation is available online **[here](https://jsulmont.github.io/spark-plug_cpp/html/)**
+Full API documentation is available online **[here](https://jsulmont.github.io/sparkplug-cpp/html/)**
 
 The documentation includes complete API reference, examples, and class diagrams.
 
