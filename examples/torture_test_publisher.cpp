@@ -25,10 +25,9 @@ void signal_handler(int signal) {
 
 class TortureTestPublisher {
 public:
-  TortureTestPublisher(const std::string& broker_url, const std::string& group_id,
-                       const std::string& edge_node_id)
-      : broker_url_(broker_url), group_id_(group_id), edge_node_id_(edge_node_id),
-        message_count_(0), reconnect_count_(0) {
+  TortureTestPublisher(std::string broker_url, std::string group_id, std::string edge_node_id)
+      : broker_url_(std::move(broker_url)), group_id_(std::move(group_id)),
+        edge_node_id_(std::move(edge_node_id)), message_count_(0), reconnect_count_(0) {
   }
 
   bool initialize() {

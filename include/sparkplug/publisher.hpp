@@ -91,15 +91,17 @@ public:
   struct Config {
     std::string
         broker_url; ///< MQTT broker URL (e.g., "tcp://localhost:1883" or "ssl://localhost:8883")
-    std::string client_id;        ///< Unique MQTT client identifier
-    std::string group_id;         ///< Sparkplug group ID (topic namespace)
-    std::string edge_node_id;     ///< Edge node identifier within the group
-    int data_qos = 0;             ///< MQTT QoS for data messages (NBIRTH/NDATA/DBIRTH/DDATA). Sparkplug requires 0.
+    std::string client_id;    ///< Unique MQTT client identifier
+    std::string group_id;     ///< Sparkplug group ID (topic namespace)
+    std::string edge_node_id; ///< Edge node identifier within the group
+    int data_qos =
+        0; ///< MQTT QoS for data messages (NBIRTH/NDATA/DBIRTH/DDATA). Sparkplug requires 0.
     int death_qos = 1;            ///< MQTT QoS for NDEATH Will Message. Sparkplug requires 1.
     bool clean_session = true;    ///< MQTT clean session flag
     int keep_alive_interval = 60; ///< MQTT keep-alive interval in seconds (Sparkplug recommends 60)
     std::optional<TlsOptions> tls{}; ///< TLS/SSL options (required if broker_url uses ssl://)
-    std::optional<CommandCallback> command_callback{}; ///< Optional callback for NCMD messages (subscribed before NBIRTH)
+    std::optional<CommandCallback>
+        command_callback{}; ///< Optional callback for NCMD messages (subscribed before NBIRTH)
   };
 
   /**
@@ -343,6 +345,62 @@ public:
   publish_device_command(std::string_view target_edge_node_id, std::string_view target_device_id,
                          PayloadBuilder& payload);
 
+  /**
+   * @brief Publishes a STATE birth message for a Host Application.
+   *
+   * STATE messages are used by Host Applications (SCADA/Primary Applications) to
+   * indicate their online status. The birth message declares the Host Application is online.
+   *
+   * @param host_id Host application identifier (e.g., "SCADA01", "HostApp")
+   * @param timestamp UTC milliseconds since epoch
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Topic format: STATE/<host_id>
+   * @note Payload format: JSON {"online": true, "timestamp": <timestamp>}
+   * @note Message is published with Retain=true (late-joining nodes can see it)
+   * @note This is NOT a Sparkplug protobuf message - uses raw JSON payload
+   *
+   * @par Example Usage
+   * @code
+   * auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+   *     std::chrono::system_clock::now().time_since_epoch()).count();
+   * publisher.publish_state_birth("SCADA01", timestamp);
+   * @endcode
+   *
+   * @see publish_state_death() for declaring Host Application offline
+   */
+  [[nodiscard]] std::expected<void, std::string> publish_state_birth(std::string_view host_id,
+                                                                     uint64_t timestamp);
+
+  /**
+   * @brief Publishes a STATE death message for a Host Application.
+   *
+   * STATE messages are used by Host Applications (SCADA/Primary Applications) to
+   * indicate their online status. The death message declares the Host Application is offline.
+   *
+   * @param host_id Host application identifier (e.g., "SCADA01", "HostApp")
+   * @param timestamp UTC milliseconds since epoch (must match birth timestamp)
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Topic format: STATE/<host_id>
+   * @note Payload format: JSON {"online": false, "timestamp": <timestamp>}
+   * @note Message is published with Retain=true
+   * @note This is NOT a Sparkplug protobuf message - uses raw JSON payload
+   *
+   * @par Example Usage
+   * @code
+   * auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+   *     std::chrono::system_clock::now().time_since_epoch()).count();
+   * publisher.publish_state_death("SCADA01", timestamp);
+   * @endcode
+   *
+   * @see publish_state_birth() for declaring Host Application online
+   */
+  [[nodiscard]] std::expected<void, std::string> publish_state_death(std::string_view host_id,
+                                                                     uint64_t timestamp);
+
 private:
   /**
    * @brief Tracks state for an individual device attached to this edge node.
@@ -391,6 +449,10 @@ private:
 
   [[nodiscard]] std::expected<void, std::string>
   publish_message(const Topic& topic, std::span<const uint8_t> payload_data);
+
+  [[nodiscard]] std::expected<void, std::string>
+  publish_raw_message(std::string_view topic, std::span<const uint8_t> payload_data, int qos,
+                      bool retain);
 
   // Static MQTT callback for message arrived (NCMD)
   static int on_message_arrived(void* context, char* topicName, int topicLen,

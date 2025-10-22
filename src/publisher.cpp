@@ -608,4 +608,62 @@ Publisher::publish_device_command(std::string_view target_edge_node_id,
   return publish_message(topic, payload_data);
 }
 
+std::expected<void, std::string>
+Publisher::publish_raw_message(std::string_view topic, std::span<const uint8_t> payload_data,
+                               int qos, bool retain) {
+  // Note: mutex already held by caller
+  if (!client_ || !is_connected_) {
+    return std::unexpected("Not connected");
+  }
+
+  MQTTAsync_message msg = MQTTAsync_message_initializer;
+  msg.payload = const_cast<void*>(reinterpret_cast<const void*>(payload_data.data()));
+  msg.payloadlen = static_cast<int>(payload_data.size());
+  msg.qos = qos;
+  msg.retained = retain ? 1 : 0;
+
+  MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
+
+  int rc = MQTTAsync_sendMessage(client_.get(), std::string(topic).c_str(), &msg, &opts);
+  if (rc != MQTTASYNC_SUCCESS) {
+    return std::unexpected(std::format("Failed to publish: {}", rc));
+  }
+
+  return {};
+}
+
+std::expected<void, std::string> Publisher::publish_state_birth(std::string_view host_id,
+                                                                uint64_t timestamp) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!is_connected_) {
+    return std::unexpected("Not connected");
+  }
+
+  std::string json_payload = std::format("{{\"online\":true,\"timestamp\":{}}}", timestamp);
+
+  std::string topic = std::format("STATE/{}", host_id);
+
+  std::vector<uint8_t> payload_data(json_payload.begin(), json_payload.end());
+
+  return publish_raw_message(topic, payload_data, 1, true);
+}
+
+std::expected<void, std::string> Publisher::publish_state_death(std::string_view host_id,
+                                                                uint64_t timestamp) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!is_connected_) {
+    return std::unexpected("Not connected");
+  }
+
+  std::string json_payload = std::format("{{\"online\":false,\"timestamp\":{}}}", timestamp);
+
+  std::string topic = std::format("STATE/{}", host_id);
+
+  std::vector<uint8_t> payload_data(json_payload.begin(), json_payload.end());
+
+  return publish_raw_message(topic, payload_data, 1, true);
+}
+
 } // namespace sparkplug
