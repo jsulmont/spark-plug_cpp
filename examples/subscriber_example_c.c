@@ -21,14 +21,12 @@ void on_message(const char* topic, const uint8_t* payload_data, size_t payload_l
   printf("Topic: %s\n", topic);
   printf("Payload size: %zu bytes\n", payload_len);
 
-  // Parse the protobuf payload
   sparkplug_payload_t* payload = sparkplug_payload_parse(payload_data, payload_len);
   if (!payload) {
     fprintf(stderr, "Failed to parse payload\n");
     return;
   }
 
-  // Get payload-level fields
   uint64_t timestamp;
   if (sparkplug_payload_get_timestamp(payload, &timestamp)) {
     printf("Timestamp: %llu\n", (unsigned long long)timestamp);
@@ -44,7 +42,6 @@ void on_message(const char* topic, const uint8_t* payload_data, size_t payload_l
     printf("UUID: %s\n", uuid);
   }
 
-  // Print all metrics
   size_t metric_count = sparkplug_payload_get_metric_count(payload);
   printf("Metrics (%zu):\n", metric_count);
 
@@ -55,7 +52,6 @@ void on_message(const char* topic, const uint8_t* payload_data, size_t payload_l
       continue;
     }
 
-    // Print metric name or alias
     printf("  [%zu] ", i);
     if (metric.has_name) {
       printf("%s", metric.name);
@@ -65,7 +61,6 @@ void on_message(const char* topic, const uint8_t* payload_data, size_t payload_l
       printf("<unnamed>");
     }
 
-    // Print value
     if (metric.is_null) {
       printf(" = NULL\n");
     } else {
@@ -109,7 +104,6 @@ void on_message(const char* topic, const uint8_t* payload_data, size_t payload_l
 
   printf("========================\n");
 
-  // Clean up
   sparkplug_payload_destroy(payload);
 }
 
@@ -117,11 +111,9 @@ int main(void) {
   printf("Sparkplug B C Subscriber Example\n");
   printf("=================================\n\n");
 
-  // Setup signal handlers
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
 
-  // Create subscriber with callback
   sparkplug_subscriber_t* sub = sparkplug_subscriber_create(
       "tcp://localhost:1883", "c_subscriber_example", "Energy", on_message,
       NULL // user_data (optional)
@@ -134,7 +126,6 @@ int main(void) {
 
   printf("[OK] Subscriber created\n");
 
-  // Connect to broker
   if (sparkplug_subscriber_connect(sub) != 0) {
     fprintf(stderr, "Failed to connect to broker\n");
     sparkplug_subscriber_destroy(sub);
@@ -143,7 +134,6 @@ int main(void) {
 
   printf("[OK] Connected to broker\n");
 
-  // Subscribe to all messages in the Energy group
   if (sparkplug_subscriber_subscribe_all(sub) != 0) {
     fprintf(stderr, "Failed to subscribe\n");
     sparkplug_subscriber_disconnect(sub);
@@ -154,14 +144,12 @@ int main(void) {
   printf("[OK] Subscribed to spBv1.0/Energy/#\n");
   printf("\nListening for messages (Ctrl+C to stop)...\n");
 
-  // Keep running and processing messages
   while (running) {
     sleep(1);
   }
 
   printf("\n\nShutting down...\n");
 
-  // Disconnect
   if (sparkplug_subscriber_disconnect(sub) == 0) {
     printf("[OK] Disconnected from broker\n");
   }

@@ -20,7 +20,6 @@ int main() {
   std::cout << "Sparkplug B TLS/SSL Subscriber Example\n";
   std::cout << "=======================================\n\n";
 
-  // Message callback
   auto callback = [](const sparkplug::Topic& topic,
                      const org::eclipse::tahu::protobuf::Payload& payload) {
     std::cout << "\nReceived secure message:\n";
@@ -65,7 +64,6 @@ int main() {
     }
   };
 
-  // Configure TLS options
   // To start test broker: ./certs/start_mosquitto_test.sh
   sparkplug::Subscriber::TlsOptions tls{
       .trust_store = "certs/ca.crt",     // CA certificate (REQUIRED)
@@ -101,7 +99,6 @@ int main() {
   std::string group_id = config.group_id;
   sparkplug::Subscriber subscriber(std::move(config), callback);
 
-  // Connect to broker with TLS
   std::cout << "Connecting to TLS-enabled broker...\n";
   auto connect_result = subscriber.connect();
   if (!connect_result) {
@@ -116,7 +113,6 @@ int main() {
 
   std::cout << "Connected to broker securely via TLS\n\n";
 
-  // Subscribe to all messages in the group
   auto subscribe_result = subscriber.subscribe_all();
   if (!subscribe_result) {
     std::cerr << "Failed to subscribe: " << subscribe_result.error() << "\n";
@@ -126,7 +122,6 @@ int main() {
   std::cout << "Subscribed to: spBv1.0/" << group_id << "/#\n";
   std::cout << "Waiting for secure messages (Ctrl+C to stop)...\n";
 
-  // Keep running until interrupted
   while (running) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }

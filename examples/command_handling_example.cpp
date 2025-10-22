@@ -48,7 +48,6 @@ void scada_host_thread() {
 
   std::cout << "[SCADA] Published NBIRTH\n";
 
-  // Send rebirth command after 5 seconds
   std::this_thread::sleep_for(std::chrono::seconds(5));
   std::cout << "\n[SCADA] Sending REBIRTH command to Gateway01...\n";
 
@@ -62,7 +61,6 @@ void scada_host_thread() {
     std::cout << "[SCADA] Rebirth command sent\n";
   }
 
-  // Send scan rate change command after 10 seconds
   std::this_thread::sleep_for(std::chrono::seconds(5));
   std::cout << "\n[SCADA] Sending SCAN RATE command to Gateway01...\n";
 
@@ -76,7 +74,6 @@ void scada_host_thread() {
     std::cout << "[SCADA] Scan rate command sent\n";
   }
 
-  // Send custom device command after 15 seconds
   std::this_thread::sleep_for(std::chrono::seconds(5));
   std::cout << "\n[SCADA] Sending DEVICE COMMAND to Motor01...\n";
 
@@ -99,7 +96,6 @@ int main() {
   std::signal(SIGINT, signal_handler);
   std::signal(SIGTERM, signal_handler);
 
-  // Create edge node publisher
   sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
                                           .client_id = "gateway_publisher",
                                           .group_id = "Factory",
@@ -114,7 +110,6 @@ int main() {
     std::cout << "\n[EDGE NODE] Received command: " << topic.to_string() << "\n";
 
     if (topic.message_type == sparkplug::MessageType::NCMD) {
-      // Handle node commands
       for (const auto& metric : payload.metrics()) {
         std::cout << "[EDGE NODE]   Command: " << metric.name() << "\n";
 
@@ -130,7 +125,6 @@ int main() {
         }
       }
     } else if (topic.message_type == sparkplug::MessageType::DCMD) {
-      // Handle device commands
       std::cout << "[EDGE NODE]   Device: " << topic.device_id << "\n";
       for (const auto& metric : payload.metrics()) {
         std::cout << "[EDGE NODE]   Command: " << metric.name();
@@ -152,10 +146,8 @@ int main() {
         // General message callback (not used in this example)
       });
 
-  // Set command callback
   subscriber.set_command_callback(command_callback);
 
-  // Connect edge node publisher
   auto connect_result = publisher->connect();
   if (!connect_result) {
     std::cerr << "[EDGE NODE] Failed to connect: " << connect_result.error() << "\n";
@@ -164,7 +156,6 @@ int main() {
 
   std::cout << "[EDGE NODE] Publisher connected\n";
 
-  // Connect subscriber
   auto sub_connect_result = subscriber.connect();
   if (!sub_connect_result) {
     std::cerr << "[EDGE NODE] Subscriber failed to connect: " << sub_connect_result.error() << "\n";
@@ -180,7 +171,6 @@ int main() {
 
   std::cout << "[EDGE NODE] Subscriber connected and listening for commands\n";
 
-  // Publish NBIRTH
   sparkplug::PayloadBuilder node_birth;
   node_birth.add_metric("bdSeq", static_cast<uint64_t>(publisher->get_bd_seq()));
   node_birth.add_node_control_rebirth(false);
@@ -195,7 +185,6 @@ int main() {
 
   std::cout << "[EDGE NODE] Published NBIRTH\n";
 
-  // Publish device birth
   sparkplug::PayloadBuilder device_birth;
   device_birth.add_metric_with_alias("RPM", 1, 1500.0);
   device_birth.add_metric_with_alias("Running", 2, true);
@@ -218,7 +207,6 @@ int main() {
   std::cout << "\n[EDGE NODE] Publishing data (Ctrl+C to stop)...\n";
 
   while (running) {
-    // Handle rebirth command
     if (do_rebirth) {
       std::cout << "\n[EDGE NODE] *** REBIRTH IN PROGRESS ***\n";
       auto rebirth_result = publisher->rebirth();
@@ -231,7 +219,6 @@ int main() {
       do_rebirth = false;
     }
 
-    // Publish data at scan rate
     temperature += 0.5;
     sparkplug::PayloadBuilder data;
     data.add_metric_by_alias(1, temperature);

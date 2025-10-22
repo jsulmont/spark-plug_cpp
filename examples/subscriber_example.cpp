@@ -101,7 +101,6 @@ int main() {
   std::cout << "Subscribed to all Sparkplug messages in group 'Energy'\n";
   std::cout << "Press Ctrl+C to exit...\n\n";
 
-  // Keep running until signal
   while (running) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }

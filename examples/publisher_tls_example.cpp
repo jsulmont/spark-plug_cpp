@@ -21,7 +21,6 @@ int main() {
   std::cout << "Sparkplug B TLS/SSL Publisher Example\n";
   std::cout << "======================================\n\n";
 
-  // Configure TLS options
   // NOTE: You need to set up your MQTT broker with TLS/SSL first
   // For Mosquitto, see: https://mosquitto.org/man/mosquitto-tls-7.html
   //
@@ -60,7 +59,6 @@ int main() {
 
   sparkplug::Publisher publisher(std::move(config));
 
-  // Connect to broker with TLS
   std::cout << "Connecting to TLS-enabled broker...\n";
   auto connect_result = publisher.connect();
   if (!connect_result) {
@@ -76,7 +74,6 @@ int main() {
   std::cout << "Connected to broker securely via TLS\n";
   std::cout << "  Initial bdSeq: " << publisher.get_bd_seq() << "\n\n";
 
-  // Build NBIRTH payload
   sparkplug::PayloadBuilder birth;
   birth.add_metric("bdSeq", static_cast<uint64_t>(publisher.get_bd_seq()));
   birth.add_node_control_rebirth(false);
@@ -93,7 +90,6 @@ int main() {
   std::cout << "Published NBIRTH over secure connection\n";
   std::cout << "  Sequence: " << publisher.get_seq() << "\n\n";
 
-  // Publish NDATA messages
   int count = 0;
   double temperature = 20.5;
 

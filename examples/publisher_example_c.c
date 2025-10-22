@@ -9,7 +9,6 @@ int main(void) {
   printf("Sparkplug B C API Example\n");
   printf("=========================\n\n");
 
-  // Create publisher
   sparkplug_publisher_t* pub = sparkplug_publisher_create(
       "tcp://localhost:1883", "c_publisher_example", "Energy", "Gateway01");
 
@@ -20,7 +19,6 @@ int main(void) {
 
   printf("[OK] Publisher created\n");
 
-  // Connect to broker
   if (sparkplug_publisher_connect(pub) != 0) {
     fprintf(stderr, "Failed to connect to broker\n");
     sparkplug_publisher_destroy(pub);
@@ -30,7 +28,6 @@ int main(void) {
   printf("[OK] Connected to broker\n");
   printf("  Initial bdSeq: %llu\n", (unsigned long long)sparkplug_publisher_get_bd_seq(pub));
 
-  // Create NBIRTH payload
   sparkplug_payload_t* birth = sparkplug_payload_create();
 
   // Add metrics with aliases (for efficient NDATA later)
@@ -43,7 +40,6 @@ int main(void) {
   sparkplug_payload_add_string(birth, "Properties/Hardware", "x86_64");
   sparkplug_payload_add_string(birth, "Properties/OS", "Linux");
 
-  // Serialize and publish NBIRTH
   uint8_t buffer[4096];
   size_t size = sparkplug_payload_serialize(birth, buffer, sizeof(buffer));
 
@@ -67,7 +63,6 @@ int main(void) {
 
   sparkplug_payload_destroy(birth);
 
-  // Publish some NDATA messages
   printf("\nPublishing NDATA messages...\n");
 
   for (int i = 0; i < 10; i++) {
@@ -82,7 +77,6 @@ int main(void) {
     sparkplug_payload_add_int64_by_alias(data, 4, uptime); // Uptime
     // Voltage and Active unchanged - not included
 
-    // Serialize and publish
     size = sparkplug_payload_serialize(data, buffer, sizeof(buffer));
 
     if (size > 0 && sparkplug_publisher_publish_data(pub, buffer, size) == 0) {
@@ -98,7 +92,6 @@ int main(void) {
     sleep(1);
   }
 
-  // Test rebirth
   printf("\nTesting rebirth...\n");
   if (sparkplug_publisher_rebirth(pub) == 0) {
     printf("[OK] Rebirth complete\n");
@@ -108,7 +101,6 @@ int main(void) {
     fprintf(stderr, "Failed to rebirth\n");
   }
 
-  // Publish a few more NDATA after rebirth
   printf("\nPublishing post-rebirth NDATA...\n");
   for (int i = 0; i < 3; i++) {
     sparkplug_payload_t* data = sparkplug_payload_create();
@@ -126,7 +118,6 @@ int main(void) {
   printf("[OK] Published 3 post-rebirth messages (seq: %llu)\n",
          (unsigned long long)sparkplug_publisher_get_seq(pub));
 
-  // Clean disconnect
   printf("\nDisconnecting...\n");
   if (sparkplug_publisher_disconnect(pub) == 0) {
     printf("[OK] Disconnected (NDEATH sent via MQTT Will)\n");

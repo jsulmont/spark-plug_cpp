@@ -31,7 +31,6 @@ int main() {
 
   sparkplug::Publisher publisher(std::move(config));
 
-  // Connect to broker
   auto connect_result = publisher.connect();
   if (!connect_result) {
     std::cerr << "Failed to connect: " << connect_result.error() << "\n";

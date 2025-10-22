@@ -28,7 +28,6 @@ int main() {
 
   sparkplug::Publisher publisher(std::move(config));
 
-  // Connect to broker
   auto connect_result = publisher.connect();
   if (!connect_result) {
     std::cerr << "Failed to connect: " << connect_result.error() << "\n";
@@ -164,7 +163,6 @@ int main() {
 
   std::cout << "\nShutting down...\n";
 
-  // Graceful disconnect
   auto disconnect_result = publisher.disconnect();
   if (!disconnect_result) {
     std::cerr << "Failed to disconnect: " << disconnect_result.error() << "\n";

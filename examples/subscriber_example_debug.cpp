@@ -20,7 +20,6 @@ void signal_handler(int signal) {
 void print_metric(const org::eclipse::tahu::protobuf::Payload::Metric& metric) {
   std::cout << "    ";
 
-  // Print name if present
   if (metric.has_name() && !metric.name().empty()) {
     std::cout << metric.name();
   } else if (metric.has_alias()) {
@@ -163,7 +162,6 @@ int main() {
   std::cout << "   (Press Ctrl+C to exit)\n";
   std::cout << "   (Try: kill -9 <publisher_pid> to send NDEATH)\n\n";
 
-  // Keep running until signal
   auto last_count = 0;
   while (running) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
