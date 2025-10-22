@@ -142,11 +142,11 @@ std::expected<void, std::string> Publisher::connect() {
                     .edge_node_id = config_.edge_node_id,
                     .device_id = ""};
 
-  auto death_topic_str = death_topic.to_string();
-  will.topicName = death_topic_str.c_str();
+  // Store as member variable to keep string alive for async MQTT operations
+  death_topic_str_ = death_topic.to_string();
+  will.topicName = death_topic_str_.c_str();
 
-  // CRITICAL FIX: Use payload.data and payload.len for binary data
-  // NOT will.message which expects null-terminated string!
+  // Use payload.data/len for binary protobuf data
   will.payload.data = death_payload_data_.data();
   will.payload.len = static_cast<int>(death_payload_data_.size());
   will.retained = 0;

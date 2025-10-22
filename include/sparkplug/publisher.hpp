@@ -345,6 +345,7 @@ private:
 
   // Store the NDEATH payload for the MQTT Will
   std::vector<uint8_t> death_payload_data_;
+  std::string death_topic_str_; // Topic string for MQTT Will (must outlive async connect)
 
   // Store last NBIRTH for rebirth command
   std::vector<uint8_t> last_birth_payload_;

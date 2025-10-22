@@ -41,7 +41,7 @@ int main() {
   std::cout << "  Initial bdSeq: " << publisher.get_bd_seq() << "\n";
 
   // Build NBIRTH payload
-  // CRITICAL: NBIRTH must include ALL metrics the node will ever report
+  // NBIRTH must include ALL metrics the node will ever report
   sparkplug::PayloadBuilder birth;
 
   // REQUIRED: bdSeq metric (will be auto-added if missing, but explicit is
@@ -69,7 +69,7 @@ int main() {
                               static_cast<int64_t>(0)); // Alias 4 for Uptime
 
   // Publish NBIRTH
-  // CRITICAL: NBIRTH must be the FIRST message after connect
+  // NBIRTH must be the FIRST message after connect
   // Sequence will be automatically set to 0
   auto birth_result = publisher.publish_birth(birth);
   if (!birth_result) {
