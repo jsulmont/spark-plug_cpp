@@ -39,7 +39,8 @@ int main() {
       .client_id = "sparkplug_tls_publisher",
       .group_id = "Energy",
       .edge_node_id = "SecureGateway01",
-      .qos = 1,
+      .data_qos = 0,
+      .death_qos = 1,
       .clean_session = true,
       .keep_alive_interval = 60,
       .tls = tls // Enable TLS

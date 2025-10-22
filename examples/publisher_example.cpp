@@ -24,9 +24,10 @@ int main() {
       .client_id = "sparkplug_publisher_example",
       .group_id = "Energy",
       .edge_node_id = "Gateway01",
-      .qos = 1,
+      .data_qos = 0,             // Sparkplug requires QoS 0 for data messages
+      .death_qos = 1,            // Sparkplug requires QoS 1 for NDEATH
       .clean_session = true,
-      .keep_alive_interval = 60 // Sparkplug recommends 60 seconds
+      .keep_alive_interval = 60  // Sparkplug recommends 60 seconds
   };
 
   sparkplug::Publisher publisher(std::move(config));

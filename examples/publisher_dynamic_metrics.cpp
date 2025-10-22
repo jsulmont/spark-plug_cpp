@@ -29,7 +29,8 @@ int main() {
                                       .client_id = "dynamic_metrics_publisher",
                                       .group_id = "Energy",
                                       .edge_node_id = "DynamicNode",
-                                      .qos = 1,
+                                      .data_qos = 0,
+                                      .death_qos = 1,
                                       .clean_session = true,
                                       .keep_alive_interval = 60};
 

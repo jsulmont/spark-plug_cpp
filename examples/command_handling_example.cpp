@@ -7,7 +7,6 @@
 
 #include <sparkplug/payload_builder.hpp>
 #include <sparkplug/publisher.hpp>
-#include <sparkplug/subscriber.hpp>
 
 std::atomic<bool> running{true};
 std::atomic<bool> do_rebirth{false};
@@ -26,7 +25,8 @@ void scada_host_thread() {
                                             .client_id = "scada_host",
                                             .group_id = "Factory",
                                             .edge_node_id = "ScadaHost",
-                                            .qos = 1};
+                                            .data_qos = 0,
+                                            .death_qos = 1};
 
   sparkplug::Publisher scada(std::move(scada_config));
 
@@ -96,15 +96,7 @@ int main() {
   std::signal(SIGINT, signal_handler);
   std::signal(SIGTERM, signal_handler);
 
-  sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
-                                          .client_id = "gateway_publisher",
-                                          .group_id = "Factory",
-                                          .edge_node_id = "Gateway01",
-                                          .qos = 1};
-
-  auto publisher = std::make_shared<sparkplug::Publisher>(std::move(pub_config));
-
-  // Create subscriber for listening to commands
+  // Create command callback for listening to commands
   auto command_callback = [](const sparkplug::Topic& topic,
                              const org::eclipse::tahu::protobuf::Payload& payload) {
     std::cout << "\n[EDGE NODE] Received command: " << topic.to_string() << "\n";
@@ -136,17 +128,18 @@ int main() {
     }
   };
 
-  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
-                                           .client_id = "gateway_subscriber",
-                                           .group_id = "Factory"};
+  sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
+                                          .client_id = "gateway_publisher",
+                                          .group_id = "Factory",
+                                          .edge_node_id = "Gateway01",
+                                          .data_qos = 0,
+                                          .death_qos = 1,
+                                          .clean_session = true,
+                                          .keep_alive_interval = 60,
+                                          .tls = {},
+                                          .command_callback = command_callback};
 
-  sparkplug::Subscriber subscriber(
-      std::move(sub_config),
-      [](const sparkplug::Topic&, const org::eclipse::tahu::protobuf::Payload&) {
-        // General message callback (not used in this example)
-      });
-
-  subscriber.set_command_callback(command_callback);
+  auto publisher = std::make_shared<sparkplug::Publisher>(std::move(pub_config));
 
   auto connect_result = publisher->connect();
   if (!connect_result) {
@@ -154,22 +147,7 @@ int main() {
     return 1;
   }
 
-  std::cout << "[EDGE NODE] Publisher connected\n";
-
-  auto sub_connect_result = subscriber.connect();
-  if (!sub_connect_result) {
-    std::cerr << "[EDGE NODE] Subscriber failed to connect: " << sub_connect_result.error() << "\n";
-    return 1;
-  }
-
-  // Subscribe to commands for this edge node
-  auto subscribe_result = subscriber.subscribe_node("Gateway01");
-  if (!subscribe_result) {
-    std::cerr << "[EDGE NODE] Failed to subscribe: " << subscribe_result.error() << "\n";
-    return 1;
-  }
-
-  std::cout << "[EDGE NODE] Subscriber connected and listening for commands\n";
+  std::cout << "[EDGE NODE] Publisher connected (NCMD subscribed)\n";
 
   sparkplug::PayloadBuilder node_birth;
   node_birth.add_metric("bdSeq", static_cast<uint64_t>(publisher->get_bd_seq()));
@@ -240,7 +218,6 @@ int main() {
   running = false;
   scada_thread.join();
 
-  (void)subscriber.disconnect();
   (void)publisher->disconnect();
 
   std::cout << "[EDGE NODE] Disconnected\n";

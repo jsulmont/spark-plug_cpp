@@ -22,7 +22,8 @@ int main() {
                                       .client_id = "sparkplug_device_publisher",
                                       .group_id = "Factory",
                                       .edge_node_id = "Gateway01",
-                                      .qos = 1,
+                                      .data_qos = 0,
+                                      .death_qos = 1,
                                       .clean_session = true,
                                       .keep_alive_interval = 60};
 

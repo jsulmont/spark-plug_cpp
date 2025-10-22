@@ -11,7 +11,6 @@
 
 #include <sparkplug/payload_builder.hpp>
 #include <sparkplug/publisher.hpp>
-#include <sparkplug/subscriber.hpp>
 
 std::atomic<bool> running{true};
 std::atomic<bool> do_rebirth{false};
@@ -33,33 +32,24 @@ public:
   }
 
   bool initialize() {
-    // Create publisher
-    sparkplug::Publisher::Config pub_config{.broker_url = broker_url_,
-                                            .client_id = "torture_test_publisher",
-                                            .group_id = group_id_,
-                                            .edge_node_id = edge_node_id_,
-                                            .qos = 1,
-                                            .clean_session = true,
-                                            .keep_alive_interval = 60};
-
-    publisher_ = std::make_unique<sparkplug::Publisher>(std::move(pub_config));
-
+    // Create publisher with command callback
     auto command_callback = [this](const sparkplug::Topic& topic,
                                    const org::eclipse::tahu::protobuf::Payload& payload) {
       handle_command(topic, payload);
     };
 
-    sparkplug::Subscriber::Config sub_config{.broker_url = broker_url_,
-                                             .client_id = "torture_test_publisher_cmd_sub",
-                                             .group_id = group_id_,
-                                             .qos = 1,
-                                             .clean_session = true};
+    sparkplug::Publisher::Config pub_config{.broker_url = broker_url_,
+                                            .client_id = "torture_test_publisher",
+                                            .group_id = group_id_,
+                                            .edge_node_id = edge_node_id_,
+                                            .data_qos = 0,
+                                            .death_qos = 1,
+                                            .clean_session = true,
+                                            .keep_alive_interval = 60,
+                                            .tls = {},
+                                            .command_callback = command_callback};
 
-    subscriber_ = std::make_unique<sparkplug::Subscriber>(
-        std::move(sub_config),
-        [](const sparkplug::Topic&, const org::eclipse::tahu::protobuf::Payload&) {});
-
-    subscriber_->set_command_callback(command_callback);
+    publisher_ = std::make_unique<sparkplug::Publisher>(std::move(pub_config));
 
     return connect();
   }
@@ -73,21 +63,7 @@ public:
       return false;
     }
 
-    auto sub_result = subscriber_->connect();
-    if (!sub_result) {
-      std::cerr << "[PUBLISHER] Command subscriber failed to connect: " << sub_result.error()
-                << "\n";
-      return false;
-    }
-
-    auto subscribe_result = subscriber_->subscribe_node(edge_node_id_);
-    if (!subscribe_result) {
-      std::cerr << "[PUBLISHER] Failed to subscribe to commands: " << subscribe_result.error()
-                << "\n";
-      return false;
-    }
-
-    std::cout << "[PUBLISHER] Connected successfully\n";
+    std::cout << "[PUBLISHER] Connected successfully (NCMD subscribed)\n";
 
     if (reconnect_count_ > 0) {
       std::cout << "[PUBLISHER] This is reconnection #" << reconnect_count_ << "\n";
@@ -252,13 +228,6 @@ public:
   void disconnect() {
     std::cout << "\n[PUBLISHER] Disconnecting...\n";
 
-    if (subscriber_) {
-      auto sub_result = subscriber_->disconnect();
-      if (!sub_result) {
-        std::cerr << "[PUBLISHER] Subscriber disconnect failed: " << sub_result.error() << "\n";
-      }
-    }
-
     if (publisher_) {
       auto death_result = publisher_->publish_death();
       if (!death_result) {
@@ -307,7 +276,6 @@ private:
   std::string edge_node_id_;
 
   std::unique_ptr<sparkplug::Publisher> publisher_;
-  std::unique_ptr<sparkplug::Subscriber> subscriber_;
 
   std::atomic<int64_t> message_count_;
   std::atomic<int> reconnect_count_;

@@ -15,6 +15,7 @@ namespace {
 // Timeout and connection constants
 constexpr int CONNECTION_TIMEOUT_MS = 5000;
 constexpr int DISCONNECT_TIMEOUT_MS = 11000;
+constexpr int SUBSCRIBE_TIMEOUT_MS = 5000;
 constexpr uint64_t SEQ_NUMBER_MAX = 256;
 
 // Callback for successful connection
@@ -45,6 +46,20 @@ void on_disconnect_failure(void* context, MQTTAsync_failureData* response) {
   promise->set_exception(std::make_exception_ptr(std::runtime_error(error)));
 }
 
+// Callback for successful subscription
+void on_subscribe_success(void* context, MQTTAsync_successData* response) {
+  (void)response;
+  auto* promise = static_cast<std::promise<void>*>(context);
+  promise->set_value();
+}
+
+// Callback for failed subscription
+void on_subscribe_failure(void* context, MQTTAsync_failureData* response) {
+  auto* promise = static_cast<std::promise<void>*>(context);
+  auto error = std::format("Subscribe failed: code={}", response ? response->code : -1);
+  promise->set_exception(std::make_exception_ptr(std::runtime_error(error)));
+}
+
 } // namespace
 
 MQTTAsyncHandle::~MQTTAsyncHandle() noexcept {
@@ -59,6 +74,38 @@ void MQTTAsyncHandle::reset() noexcept {
 }
 
 Publisher::Publisher(Config config) : config_(std::move(config)) {
+}
+
+int Publisher::on_message_arrived(void* context, char* topicName, int topicLen,
+                                  MQTTAsync_message* message) {
+  auto* publisher = static_cast<Publisher*>(context);
+
+  std::string topic_str;
+  if (topicLen > 0) {
+    topic_str = std::string(topicName, static_cast<size_t>(topicLen));
+  } else {
+    topic_str = std::string(topicName);
+  }
+
+  auto topic_result = Topic::parse(topic_str);
+  if (!topic_result) {
+    MQTTAsync_freeMessage(&message);
+    MQTTAsync_free(topicName);
+    return 1;
+  }
+
+  const auto& topic = topic_result.value();
+
+  if (topic.message_type == MessageType::NCMD && publisher->config_.command_callback) {
+    org::eclipse::tahu::protobuf::Payload payload;
+    if (payload.ParseFromArray(message->payload, message->payloadlen)) {
+      publisher->config_.command_callback.value()(topic, payload);
+    }
+  }
+
+  MQTTAsync_freeMessage(&message);
+  MQTTAsync_free(topicName);
+  return 1;
 }
 
 Publisher::~Publisher() {
@@ -151,7 +198,7 @@ std::expected<void, std::string> Publisher::connect() {
   will_opts_.payload.data = death_payload_data_.data();
   will_opts_.payload.len = static_cast<int>(death_payload_data_.size());
   will_opts_.retained = 0;
-  will_opts_.qos = config_.qos;
+  will_opts_.qos = config_.death_qos;
 
   conn_opts.will = &will_opts_;
 
@@ -179,6 +226,48 @@ std::expected<void, std::string> Publisher::connect() {
   }
 
   is_connected_ = true;
+
+  // If command callback is configured, subscribe to NCMD before allowing NBIRTH
+  if (config_.command_callback.has_value()) {
+    // Set message callback
+    rc = MQTTAsync_setCallbacks(client_.get(), this, nullptr, on_message_arrived, nullptr);
+    if (rc != MQTTASYNC_SUCCESS) {
+      return std::unexpected(std::format("Failed to set message callback: {}", rc));
+    }
+
+    // Subscribe to NCMD topic
+    Topic ncmd_topic{.group_id = config_.group_id,
+                     .message_type = MessageType::NCMD,
+                     .edge_node_id = config_.edge_node_id,
+                     .device_id = ""};
+
+    auto ncmd_topic_str = ncmd_topic.to_string();
+
+    std::promise<void> subscribe_promise;
+    auto subscribe_future = subscribe_promise.get_future();
+
+    MQTTAsync_responseOptions sub_opts = MQTTAsync_responseOptions_initializer;
+    sub_opts.context = &subscribe_promise;
+    sub_opts.onSuccess = on_subscribe_success;
+    sub_opts.onFailure = on_subscribe_failure;
+
+    rc = MQTTAsync_subscribe(client_.get(), ncmd_topic_str.c_str(), 1, &sub_opts);
+    if (rc != MQTTASYNC_SUCCESS) {
+      return std::unexpected(std::format("Failed to subscribe to NCMD: {}", rc));
+    }
+
+    auto sub_status = subscribe_future.wait_for(std::chrono::milliseconds(SUBSCRIBE_TIMEOUT_MS));
+    if (sub_status == std::future_status::timeout) {
+      return std::unexpected("NCMD subscription timeout");
+    }
+
+    try {
+      subscribe_future.get();
+    } catch (const std::exception& e) {
+      return std::unexpected(std::format("NCMD subscription failed: {}", e.what()));
+    }
+  }
+
   return {};
 }
 
@@ -230,7 +319,7 @@ std::expected<void, std::string> Publisher::publish_message(const Topic& topic,
   MQTTAsync_message msg = MQTTAsync_message_initializer;
   msg.payload = const_cast<void*>(reinterpret_cast<const void*>(payload_data.data()));
   msg.payloadlen = static_cast<int>(payload_data.size());
-  msg.qos = config_.qos;
+  msg.qos = config_.data_qos;
   msg.retained = 0;
 
   MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;

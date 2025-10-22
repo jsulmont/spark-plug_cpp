@@ -94,7 +94,8 @@ public:
                                               .client_id = "torture_test_cmd_" + subscriber_id_,
                                               .group_id = group_id_,
                                               .edge_node_id = "CommandHost_" + subscriber_id_,
-                                              .qos = 1,
+                                              .data_qos = 0,
+                                              .death_qos = 1,
                                               .clean_session = true};
 
       command_publisher_ = std::make_unique<sparkplug::Publisher>(std::move(pub_config));
