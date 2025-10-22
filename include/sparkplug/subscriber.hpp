@@ -203,6 +203,19 @@ public:
   [[nodiscard]] std::expected<void, std::string> subscribe_node(std::string_view edge_node_id);
 
   /**
+   * @brief Subscribes to all messages for an additional group.
+   *
+   * Subscribes to: spBv1.0/{group_id}/#
+   *
+   * @param group_id The group ID to subscribe to
+   *
+   * @return void on success, error message on failure
+   *
+   * @note Allows subscribing to multiple groups on a single MQTT connection.
+   */
+  [[nodiscard]] std::expected<void, std::string> subscribe_group(std::string_view group_id);
+
+  /**
    * @brief Subscribes to STATE messages from a primary application.
    *
    * STATE messages indicate whether a SCADA/Primary Application is online.
@@ -219,6 +232,7 @@ public:
   /**
    * @brief Gets the current state of a specific edge node.
    *
+   * @param group_id The group ID
    * @param edge_node_id The edge node ID to query
    *
    * @return NodeState if the node has been seen, std::nullopt otherwise
@@ -226,7 +240,7 @@ public:
    * @note Useful for monitoring node online/offline status and bdSeq.
    */
   [[nodiscard]] std::optional<std::reference_wrapper<const NodeState>>
-  get_node_state(std::string_view edge_node_id) const;
+  get_node_state(std::string_view group_id, std::string_view edge_node_id) const;
 
   /**
    * @brief Sets a callback for receiving command messages (NCMD/DCMD).
@@ -284,25 +298,47 @@ private:
   Config config_;
   MQTTAsyncHandle client_;
 
-  // Hash and equality functors that support heterogeneous lookup (string_view)
-  struct StringHash {
-    using is_transparent = void;
-    [[nodiscard]] size_t operator()(std::string_view sv) const noexcept {
-      return std::hash<std::string_view>{}(sv);
+  struct NodeKey {
+    std::string group_id;
+    std::string edge_node_id;
+
+    bool operator==(const NodeKey& other) const noexcept {
+      return group_id == other.group_id && edge_node_id == other.edge_node_id;
     }
   };
 
-  struct StringEqual {
+  struct NodeKeyHash {
     using is_transparent = void;
-    [[nodiscard]] bool operator()(std::string_view lhs, std::string_view rhs) const noexcept {
+    [[nodiscard]] size_t operator()(const NodeKey& key) const noexcept {
+      size_t h1 = std::hash<std::string>{}(key.group_id);
+      size_t h2 = std::hash<std::string>{}(key.edge_node_id);
+      return h1 ^ (h2 << 1);
+    }
+    [[nodiscard]] size_t
+    operator()(std::pair<std::string_view, std::string_view> key) const noexcept {
+      size_t h1 = std::hash<std::string_view>{}(key.first);
+      size_t h2 = std::hash<std::string_view>{}(key.second);
+      return h1 ^ (h2 << 1);
+    }
+  };
+
+  struct NodeKeyEqual {
+    using is_transparent = void;
+    [[nodiscard]] bool operator()(const NodeKey& lhs, const NodeKey& rhs) const noexcept {
       return lhs == rhs;
     }
+    [[nodiscard]] bool operator()(const NodeKey& lhs,
+                                  std::pair<std::string_view, std::string_view> rhs) const noexcept {
+      return lhs.group_id == rhs.first && lhs.edge_node_id == rhs.second;
+    }
+    [[nodiscard]] bool operator()(std::pair<std::string_view, std::string_view> lhs,
+                                  const NodeKey& rhs) const noexcept {
+      return lhs.first == rhs.group_id && lhs.second == rhs.edge_node_id;
+    }
   };
 
-  // Track state of each edge node for validation (with heterogeneous lookup)
-  std::unordered_map<std::string, NodeState, StringHash, StringEqual> node_states_;
+  std::unordered_map<NodeKey, NodeState, NodeKeyHash, NodeKeyEqual> node_states_;
 
-  // Mutex for thread-safe access to all mutable state
   mutable std::mutex mutex_;
 
   bool validate_message(const Topic& topic, const org::eclipse::tahu::protobuf::Payload& payload);

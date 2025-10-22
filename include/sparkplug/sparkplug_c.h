@@ -316,6 +316,18 @@ int sparkplug_subscriber_subscribe_all(sparkplug_subscriber_t* sub);
 int sparkplug_subscriber_subscribe_node(sparkplug_subscriber_t* sub, const char* edge_node_id);
 
 /**
+ * @brief Subscribes to all messages for an additional group.
+ *
+ * @param sub Subscriber handle
+ * @param group_id Group ID to subscribe to
+ *
+ * @return 0 on success, -1 on failure
+ *
+ * @note Allows subscribing to multiple groups on a single MQTT connection.
+ */
+int sparkplug_subscriber_subscribe_group(sparkplug_subscriber_t* sub, const char* group_id);
+
+/**
  * @brief Subscribes to STATE messages from a primary application.
  *
  * @param sub Subscriber handle

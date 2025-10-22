@@ -363,6 +363,12 @@ int sparkplug_subscriber_subscribe_node(sparkplug_subscriber_t* sub, const char*
   return sub->impl->subscribe_node(edge_node_id).has_value() ? 0 : -1;
 }
 
+int sparkplug_subscriber_subscribe_group(sparkplug_subscriber_t* sub, const char* group_id) {
+  if (!sub || !sub->impl || !group_id)
+    return -1;
+  return sub->impl->subscribe_group(group_id).has_value() ? 0 : -1;
+}
+
 int sparkplug_subscriber_subscribe_state(sparkplug_subscriber_t* sub, const char* host_id) {
   if (!sub || !sub->impl || !host_id)
     return -1;

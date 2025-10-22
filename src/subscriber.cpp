@@ -78,13 +78,13 @@ Subscriber& Subscriber::operator=(Subscriber&& other) noexcept {
 
 bool Subscriber::validate_message(const Topic& topic,
                                   const org::eclipse::tahu::protobuf::Payload& payload) {
-  // Note: mutex already held by caller (update_node_state)
   if (!config_.validate_sequence) {
     return true;
   }
 
-  const std::string& node_id = topic.edge_node_id;
-  auto& state = node_states_[node_id];
+  NodeKey key{topic.group_id, topic.edge_node_id};
+  auto& state = node_states_[key];
+  const std::string node_id = topic.group_id + "/" + topic.edge_node_id;
 
   switch (topic.message_type) {
   case MessageType::NBIRTH: {
@@ -452,6 +452,25 @@ std::expected<void, std::string> Subscriber::subscribe_node(std::string_view edg
   return {};
 }
 
+std::expected<void, std::string> Subscriber::subscribe_group(std::string_view group_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!client_) {
+    return std::unexpected("Not connected");
+  }
+
+  std::string topic = std::format("spBv1.0/{}/#", group_id);
+
+  MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
+
+  int rc = MQTTAsync_subscribe(client_.get(), topic.c_str(), config_.qos, &opts);
+  if (rc != MQTTASYNC_SUCCESS) {
+    return std::unexpected(std::format("Failed to subscribe: {}", rc));
+  }
+
+  return {};
+}
+
 std::expected<void, std::string> Subscriber::subscribe_state(std::string_view host_id) {
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -472,10 +491,10 @@ std::expected<void, std::string> Subscriber::subscribe_state(std::string_view ho
 }
 
 std::optional<std::reference_wrapper<const Subscriber::NodeState>>
-Subscriber::get_node_state(std::string_view edge_node_id) const {
+Subscriber::get_node_state(std::string_view group_id, std::string_view edge_node_id) const {
   std::lock_guard<std::mutex> lock(mutex_);
 
-  auto it = node_states_.find(edge_node_id);
+  auto it = node_states_.find(std::make_pair(group_id, edge_node_id));
   if (it != node_states_.end()) {
     return std::cref(it->second);
   }
