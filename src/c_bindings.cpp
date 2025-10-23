@@ -762,15 +762,14 @@ bool sparkplug_payload_get_metric_at(const sparkplug_payload_t* payload, size_t 
 
 sparkplug_host_application_t* sparkplug_host_application_create(const char* broker_url,
                                                                 const char* client_id,
-                                                                const char* host_id,
-                                                                const char* group_id) {
-  if (!broker_url || !client_id || !host_id || !group_id) {
+                                                                const char* host_id) {
+  if (!broker_url || !client_id || !host_id) {
     return nullptr;
   }
 
   try {
     sparkplug::HostApplication::Config config{
-        .broker_url = broker_url, .client_id = client_id, .host_id = host_id, .group_id = group_id};
+        .broker_url = broker_url, .client_id = client_id, .host_id = host_id};
 
     auto* host =
         new sparkplug_host_application{.impl = sparkplug::HostApplication(std::move(config))};
@@ -823,10 +822,11 @@ int sparkplug_host_application_publish_state_death(sparkplug_host_application_t*
 }
 
 int sparkplug_host_application_publish_node_command(sparkplug_host_application_t* host,
+                                                    const char* group_id,
                                                     const char* target_edge_node_id,
                                                     const uint8_t* payload_data,
                                                     size_t payload_len) {
-  if (!host || !target_edge_node_id || !payload_data) {
+  if (!host || !group_id || !target_edge_node_id || !payload_data) {
     return -1;
   }
 
@@ -839,19 +839,17 @@ int sparkplug_host_application_publish_node_command(sparkplug_host_application_t
     sparkplug::PayloadBuilder builder;
     copy_metrics_to_builder(builder, proto_payload);
 
-    auto result = host->impl.publish_node_command(target_edge_node_id, builder);
+    auto result = host->impl.publish_node_command(group_id, target_edge_node_id, builder);
     return result.has_value() ? 0 : -1;
   } catch (...) {
     return -1;
   }
 }
 
-int sparkplug_host_application_publish_device_command(sparkplug_host_application_t* host,
-                                                      const char* target_edge_node_id,
-                                                      const char* target_device_id,
-                                                      const uint8_t* payload_data,
-                                                      size_t payload_len) {
-  if (!host || !target_edge_node_id || !target_device_id || !payload_data) {
+int sparkplug_host_application_publish_device_command(
+    sparkplug_host_application_t* host, const char* group_id, const char* target_edge_node_id,
+    const char* target_device_id, const uint8_t* payload_data, size_t payload_len) {
+  if (!host || !group_id || !target_edge_node_id || !target_device_id || !payload_data) {
     return -1;
   }
 
@@ -864,7 +862,8 @@ int sparkplug_host_application_publish_device_command(sparkplug_host_application
     sparkplug::PayloadBuilder builder;
     copy_metrics_to_builder(builder, proto_payload);
 
-    auto result = host->impl.publish_device_command(target_edge_node_id, target_device_id, builder);
+    auto result =
+        host->impl.publish_device_command(group_id, target_edge_node_id, target_device_id, builder);
     return result.has_value() ? 0 : -1;
   } catch (...) {
     return -1;

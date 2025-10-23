@@ -34,8 +34,7 @@ namespace sparkplug {
  * sparkplug::HostApplication::Config config{
  *   .broker_url = "tcp://localhost:1883",
  *   .client_id = "scada_host",
- *   .host_id = "SCADA01",
- *   .group_id = "Energy"
+ *   .host_id = "SCADA01"
  * };
  *
  * sparkplug::HostApplication host_app(std::move(config));
@@ -49,7 +48,7 @@ namespace sparkplug {
  * // Send rebirth command to an Edge Node
  * sparkplug::PayloadBuilder cmd;
  * cmd.add_metric("Node Control/Rebirth", true);
- * host_app.publish_node_command("Gateway01", cmd);
+ * host_app.publish_node_command("Energy", "Gateway01", cmd);
  *
  * // Publish STATE death before disconnecting
  * host_app.publish_state_death(timestamp);
@@ -81,7 +80,6 @@ public:
                                      ///< "ssl://localhost:8883")
     std::string client_id;           ///< Unique MQTT client identifier
     std::string host_id;             ///< Host Application identifier (for STATE messages)
-    std::string group_id;            ///< Sparkplug group ID (for NCMD/DCMD commands to Edge Nodes)
     int qos = 1;                     ///< MQTT QoS for STATE messages and commands (default: 1)
     bool clean_session = true;       ///< MQTT clean session flag
     int keep_alive_interval = 60;    ///< MQTT keep-alive interval in seconds (default: 60)
@@ -192,6 +190,7 @@ public:
    * NCMD messages are commands sent from Host Applications to Edge Nodes to request
    * actions like rebirth, reboot, or custom operations.
    *
+   * @param group_id The Sparkplug group ID containing the target Edge Node
    * @param target_edge_node_id The target Edge Node identifier
    * @param payload PayloadBuilder containing command metrics (e.g., "Node Control/Rebirth")
    *
@@ -207,17 +206,19 @@ public:
    * @code
    * sparkplug::PayloadBuilder cmd;
    * cmd.add_metric("Node Control/Rebirth", true);
-   * host_app.publish_node_command("Gateway01", cmd);
+   * host_app.publish_node_command("Energy", "Gateway01", cmd);
    * @endcode
    */
   [[nodiscard]] std::expected<void, std::string>
-  publish_node_command(std::string_view target_edge_node_id, PayloadBuilder& payload);
+  publish_node_command(std::string_view group_id, std::string_view target_edge_node_id,
+                       PayloadBuilder& payload);
 
   /**
    * @brief Publishes a DCMD (Device Command) message to a device on an Edge Node.
    *
    * DCMD messages are commands sent from Host Applications to devices attached to Edge Nodes.
    *
+   * @param group_id The Sparkplug group ID containing the target Edge Node
    * @param target_edge_node_id The target Edge Node identifier
    * @param target_device_id The target device identifier
    * @param payload PayloadBuilder containing command metrics
@@ -228,12 +229,12 @@ public:
    * @code
    * sparkplug::PayloadBuilder cmd;
    * cmd.add_metric("SetPoint", 75.0);
-   * host_app.publish_device_command("Gateway01", "Motor01", cmd);
+   * host_app.publish_device_command("Energy", "Gateway01", "Motor01", cmd);
    * @endcode
    */
   [[nodiscard]] std::expected<void, std::string>
-  publish_device_command(std::string_view target_edge_node_id, std::string_view target_device_id,
-                         PayloadBuilder& payload);
+  publish_device_command(std::string_view group_id, std::string_view target_edge_node_id,
+                         std::string_view target_device_id, PayloadBuilder& payload);
 
 private:
   Config config_;

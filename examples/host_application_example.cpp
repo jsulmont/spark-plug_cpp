@@ -54,7 +54,6 @@ int main() {
       .broker_url = "tcp://localhost:1883",
       .client_id = "scada_host",
       .host_id = "SCADA01",
-      .group_id = "Energy",
       .qos = 1,
       .clean_session = true,
       .keep_alive_interval = 60,
@@ -88,12 +87,12 @@ int main() {
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  std::cout << "Sending NCMD rebirth command to Edge Node 'Gateway01'...\n";
+  std::cout << "Sending NCMD rebirth command to Edge Node 'Gateway01' in group 'Energy'...\n";
 
   sparkplug::PayloadBuilder rebirth_cmd;
   rebirth_cmd.add_metric("Node Control/Rebirth", true);
 
-  result = host_app.publish_node_command("Gateway01", rebirth_cmd);
+  result = host_app.publish_node_command("Energy", "Gateway01", rebirth_cmd);
   if (!result) {
     std::cerr << "Failed to publish NCMD: " << result.error() << "\n";
   } else {
@@ -103,12 +102,12 @@ int main() {
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  std::cout << "Sending DCMD to device 'Motor01' on Edge Node 'Gateway01'...\n";
+  std::cout << "Sending DCMD to device 'Motor01' on Edge Node 'Gateway01' in group 'Energy'...\n";
 
   sparkplug::PayloadBuilder device_cmd;
   device_cmd.add_metric("SetPoint", 75.0);
 
-  result = host_app.publish_device_command("Gateway01", "Motor01", device_cmd);
+  result = host_app.publish_device_command("Energy", "Gateway01", "Motor01", device_cmd);
   if (!result) {
     std::cerr << "Failed to publish DCMD: " << result.error() << "\n";
   } else {

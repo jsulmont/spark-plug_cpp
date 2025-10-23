@@ -320,13 +320,12 @@ typedef struct sparkplug_host_application sparkplug_host_application_t;
  *
  * Host Applications have different behavior than Edge Nodes:
  * - Publish STATE messages (JSON, not protobuf) to indicate online/offline status
- * - Publish NCMD/DCMD commands to control Edge Nodes and Devices
+ * - Publish NCMD/DCMD commands to control Edge Nodes and Devices (group_id specified per command)
  * - Do NOT publish NBIRTH/NDATA/NDEATH (those are for Edge Nodes only)
  *
  * @param broker_url MQTT broker URL (e.g., "tcp://localhost:1883")
  * @param client_id Unique MQTT client identifier
  * @param host_id Host Application identifier (for STATE messages)
- * @param group_id Sparkplug group ID (for NCMD/DCMD commands)
  *
  * @return Host Application handle on success, NULL on failure
  *
@@ -334,8 +333,7 @@ typedef struct sparkplug_host_application sparkplug_host_application_t;
  */
 sparkplug_host_application_t* sparkplug_host_application_create(const char* broker_url,
                                                                 const char* client_id,
-                                                                const char* host_id,
-                                                                const char* group_id);
+                                                                const char* host_id);
 
 /**
  * @brief Destroys a Host Application and frees all resources.
@@ -400,6 +398,7 @@ int sparkplug_host_application_publish_state_death(sparkplug_host_application_t*
  * @brief Publishes an NCMD (Node Command) message to an Edge Node.
  *
  * @param host Host Application handle
+ * @param group_id Sparkplug group ID containing the target Edge Node
  * @param target_edge_node_id Target Edge Node identifier
  * @param payload_data Serialized Sparkplug protobuf payload
  * @param payload_len Length of payload data in bytes
@@ -407,6 +406,7 @@ int sparkplug_host_application_publish_state_death(sparkplug_host_application_t*
  * @return 0 on success, -1 on failure
  */
 int sparkplug_host_application_publish_node_command(sparkplug_host_application_t* host,
+                                                    const char* group_id,
                                                     const char* target_edge_node_id,
                                                     const uint8_t* payload_data,
                                                     size_t payload_len);
@@ -415,6 +415,7 @@ int sparkplug_host_application_publish_node_command(sparkplug_host_application_t
  * @brief Publishes a DCMD (Device Command) message to a device on an Edge Node.
  *
  * @param host Host Application handle
+ * @param group_id Sparkplug group ID containing the target Edge Node
  * @param target_edge_node_id Target Edge Node identifier
  * @param target_device_id Target device identifier
  * @param payload_data Serialized Sparkplug protobuf payload
@@ -422,11 +423,9 @@ int sparkplug_host_application_publish_node_command(sparkplug_host_application_t
  *
  * @return 0 on success, -1 on failure
  */
-int sparkplug_host_application_publish_device_command(sparkplug_host_application_t* host,
-                                                      const char* target_edge_node_id,
-                                                      const char* target_device_id,
-                                                      const uint8_t* payload_data,
-                                                      size_t payload_len);
+int sparkplug_host_application_publish_device_command(
+    sparkplug_host_application_t* host, const char* group_id, const char* target_edge_node_id,
+    const char* target_device_id, const uint8_t* payload_data, size_t payload_len);
 
 /* ============================================================================
  * Subscriber API

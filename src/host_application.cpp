@@ -203,16 +203,15 @@ std::expected<void, std::string> HostApplication::publish_state_death(uint64_t t
   return publish_raw_message(topic, payload_data, config_.qos, true);
 }
 
-std::expected<void, std::string>
-HostApplication::publish_node_command(std::string_view target_edge_node_id,
-                                      PayloadBuilder& payload) {
+std::expected<void, std::string> HostApplication::publish_node_command(
+    std::string_view group_id, std::string_view target_edge_node_id, PayloadBuilder& payload) {
   std::lock_guard<std::mutex> lock(mutex_);
 
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
 
-  Topic topic{.group_id = config_.group_id,
+  Topic topic{.group_id = std::string(group_id),
               .message_type = MessageType::NCMD,
               .edge_node_id = std::string(target_edge_node_id),
               .device_id = ""};
@@ -221,17 +220,16 @@ HostApplication::publish_node_command(std::string_view target_edge_node_id,
   return publish_command_message(topic.to_string(), payload_data);
 }
 
-std::expected<void, std::string>
-HostApplication::publish_device_command(std::string_view target_edge_node_id,
-                                        std::string_view target_device_id,
-                                        PayloadBuilder& payload) {
+std::expected<void, std::string> HostApplication::publish_device_command(
+    std::string_view group_id, std::string_view target_edge_node_id,
+    std::string_view target_device_id, PayloadBuilder& payload) {
   std::lock_guard<std::mutex> lock(mutex_);
 
   if (!is_connected_) {
     return std::unexpected("Not connected");
   }
 
-  Topic topic{.group_id = config_.group_id,
+  Topic topic{.group_id = std::string(group_id),
               .message_type = MessageType::DCMD,
               .edge_node_id = std::string(target_edge_node_id),
               .device_id = std::string(target_device_id)};
