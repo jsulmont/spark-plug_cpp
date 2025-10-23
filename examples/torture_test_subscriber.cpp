@@ -64,11 +64,11 @@ struct NodeStats {
 
 class TortureTestSubscriber {
 public:
-  TortureTestSubscriber(const std::string& broker_url, const std::string& group_id,
-                        const std::string& subscriber_id, bool send_commands,
-                        int cycle_interval_sec)
-      : broker_url_(broker_url), group_id_(group_id), subscriber_id_(subscriber_id),
-        send_commands_(send_commands), cycle_interval_sec_(cycle_interval_sec) {
+  TortureTestSubscriber(std::string broker_url, std::string group_id, std::string subscriber_id,
+                        bool send_commands, int cycle_interval_sec)
+      : broker_url_(std::move(broker_url)), group_id_(std::move(group_id)),
+        subscriber_id_(std::move(subscriber_id)), send_commands_(send_commands),
+        cycle_interval_sec_(cycle_interval_sec) {
   }
 
   bool initialize() {
