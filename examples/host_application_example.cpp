@@ -1,5 +1,46 @@
 // examples/host_application_example.cpp
 // Example of using the HostApplication class for a SCADA/Primary Application
+/*
+  STATE messages are a special type of Sparkplug message used by Host Applications (SCADA/Primary
+  Applications) to declare their online/offline status. They work fundamentally differently from
+  normal Sparkplug messages:
+
+
+  1. Who Publishes STATE Messages?
+  - Host Applications (SCADA systems, primary applications) publish STATE messages
+  - NOT Edge Nodes (Edge Nodes publish NBIRTH/NDEATH instead)
+
+  2. Topic Format:
+  STATE/<host_id>
+  Notice: This is NOT in the spBv1.0/ namespace! (see test_topic.cpp:36)
+
+  Example:
+  - STATE/SCADA01 - for a SCADA Host Application with ID "SCADA01"
+
+  3. Payload Format:
+  Unlike other Sparkplug messages, STATE messages use JSON, not Protocol Buffers:
+
+  // STATE birth (Host App online)
+  {"online": true, "timestamp": 1234567890123}
+
+  // STATE death (Host App offline)
+  {"online": false, "timestamp": 1234567890123}
+
+  See host_application_example.cpp:46 and 87 for examples.
+
+  4. MQTT Properties:
+  - QoS: 1 (reliable delivery)
+  - Retain: true (important! Late-joining Edge Nodes see the Host's status)
+
+  How STATE Messages Work
+
+  1. Connect to broker (no automatic messages)
+  2. Publish STATE birth → tells Edge Nodes "I'm online and monitoring"
+  3. Send NCMD/DCMD commands → control Edge Nodes and devices
+  4. Publish STATE death → tells Edge Nodes "I'm going offline"
+  5. Disconnect
+
+*/
 
 #include "sparkplug/host_application.hpp"
 #include "sparkplug/payload_builder.hpp"
