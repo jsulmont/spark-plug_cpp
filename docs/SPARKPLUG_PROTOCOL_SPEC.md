@@ -24,7 +24,7 @@ Based on the Eclipse Sparkplug 2.2 specification.
 
 ### 1. Connection Phase
 
-```
+```text
 Edge Node Actions:
 1. Subscribe to: spBv1.0/group_id/NCMD/edge_node_id
 2. Configure MQTT Will Message:
@@ -40,7 +40,7 @@ Edge Node Actions:
 
 ### 2. Birth Phase
 
-```
+```text
 Edge Node Actions:
 5. Publish NBIRTH:
    - Topic: spBv1.0/group_id/NBIRTH/edge_node_id
@@ -57,7 +57,7 @@ Edge Node Actions:
 
 ### 3. Operational Phase
 
-```
+```text
 Edge Node Actions:
 7. On metric value change (Report by Exception):
    - Publish NDATA (node metrics) or DDATA (device metrics)
@@ -76,7 +76,7 @@ Edge Node Actions:
 
 ### 4. Death Phase
 
-```
+```text
 Edge Node Actions:
 10. On Device disconnect:
     - Publish DDEATH for affected device
@@ -120,7 +120,7 @@ Host Application Actions:
 
 ### 3. Operational Phase
 
-```
+```text
 Host Application Actions:
 6. On receiving NBIRTH:
    - Store bdSeq for this Edge Node

@@ -526,6 +526,41 @@ void sparkplug_subscriber_set_command_callback(sparkplug_subscriber_t* sub,
                                                sparkplug_command_callback_t callback,
                                                void* user_data);
 
+/**
+ * @brief Resolves a metric alias to its name for a specific node or device.
+ *
+ * Looks up the metric name that corresponds to the given alias, based on
+ * the alias mappings captured from NBIRTH (node metrics) or DBIRTH (device metrics).
+ *
+ * @param sub Subscriber handle
+ * @param group_id The group ID
+ * @param edge_node_id The edge node ID
+ * @param device_id The device ID (NULL or empty string for node-level metrics)
+ * @param alias The metric alias to resolve
+ * @param name_buffer Buffer to store the metric name (if found)
+ * @param buffer_size Size of the name buffer
+ *
+ * @return Number of bytes written to name_buffer (including null terminator) on success,
+ *         0 if alias not found or node/device not seen yet,
+ *         -1 on error (e.g., buffer too small)
+ *
+ * @note The metric name is null-terminated in the buffer.
+ * @note Returns 0 if the node/device hasn't sent a birth message yet.
+ *
+ * @par Example Usage
+ * @code
+ * char name[256];
+ * int result = sparkplug_subscriber_get_metric_name(
+ *     sub, "Energy", "Gateway01", "Sensor01", 1, name, sizeof(name));
+ * if (result > 0) {
+ *   printf("Alias 1 = %s\n", name);
+ * }
+ * @endcode
+ */
+int sparkplug_subscriber_get_metric_name(sparkplug_subscriber_t* sub, const char* group_id,
+                                         const char* edge_node_id, const char* device_id,
+                                         uint64_t alias, char* name_buffer, size_t buffer_size);
+
 /* ============================================================================
  * Payload Builder API
  * ========================================================================= */

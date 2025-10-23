@@ -17,13 +17,22 @@ void signal_handler(int signal) {
   running = false;
 }
 
-void print_metric(const org::eclipse::tahu::protobuf::Payload::Metric& metric) {
+void print_metric(const org::eclipse::tahu::protobuf::Payload::Metric& metric,
+                  const sparkplug::Subscriber& subscriber, const sparkplug::Topic& topic) {
   std::cout << "    ";
 
+  // First, try to use the metric name if it's present
   if (metric.has_name() && !metric.name().empty()) {
     std::cout << metric.name();
   } else if (metric.has_alias()) {
-    std::cout << "[alias:" << metric.alias() << "]";
+    // Try to resolve alias to name from birth message
+    auto name = subscriber.get_metric_name(topic.group_id, topic.edge_node_id, topic.device_id,
+                                           metric.alias());
+    if (name) {
+      std::cout << *name << " [alias:" << metric.alias() << "]";
+    } else {
+      std::cout << "[alias:" << metric.alias() << "]";
+    }
   } else {
     std::cout << "[unnamed]";
   }
@@ -109,8 +118,14 @@ int main(int argc, char* argv[]) {
                                        .clean_session = true,
                                        .validate_sequence = true};
 
-  auto message_handler = [](const sparkplug::Topic& topic,
-                            const org::eclipse::tahu::protobuf::Payload& payload) {
+  // Create subscriber with a placeholder callback first
+  sparkplug::Subscriber subscriber(
+      std::move(config),
+      [](const sparkplug::Topic&, const org::eclipse::tahu::protobuf::Payload&) {});
+
+  // Now set the real callback that can capture subscriber by reference
+  subscriber.callback_ = [&subscriber](const sparkplug::Topic& topic,
+                                       const org::eclipse::tahu::protobuf::Payload& payload) {
     int count = ++message_count;
 
     std::cout << "\n╔════════════════════════════════════════════════════════════╗\n";
@@ -141,13 +156,11 @@ int main(int argc, char* argv[]) {
     std::cout << "╚════════════════════════════════════════════════════════════╝\n";
 
     for (const auto& metric : payload.metrics()) {
-      print_metric(metric);
+      print_metric(metric, subscriber, topic);
     }
 
     std::cout << std::endl;
   };
-
-  sparkplug::Subscriber subscriber(std::move(config), std::move(message_handler));
 
   std::cout << "Multi-Group Subscriber Starting...\n";
 

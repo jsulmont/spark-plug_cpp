@@ -115,6 +115,14 @@ bool Subscriber::validate_message(const Topic& topic,
     state.birth_received = true;
     state.birth_timestamp = payload.timestamp();
 
+    // Capture alias mappings from NBIRTH
+    state.alias_map.clear();
+    for (const auto& metric : payload.metrics()) {
+      if (metric.has_alias() && metric.has_name()) {
+        state.alias_map[metric.alias()] = metric.name();
+      }
+    }
+
     return true;
   }
 
@@ -173,6 +181,14 @@ bool Subscriber::validate_message(const Topic& topic,
     device_state.is_online = true;
     device_state.birth_received = true;
     device_state.last_seq = 0;
+
+    // Capture alias mappings from DBIRTH
+    device_state.alias_map.clear();
+    for (const auto& metric : payload.metrics()) {
+      if (metric.has_alias() && metric.has_name()) {
+        device_state.alias_map[metric.alias()] = metric.name();
+      }
+    }
 
     return true;
   }
@@ -497,6 +513,43 @@ Subscriber::get_node_state(std::string_view group_id, std::string_view edge_node
   auto it = node_states_.find(std::make_pair(group_id, edge_node_id));
   if (it != node_states_.end()) {
     return std::cref(it->second);
+  }
+  return std::nullopt;
+}
+
+std::optional<std::string_view> Subscriber::get_metric_name(std::string_view group_id,
+                                                            std::string_view edge_node_id,
+                                                            std::string_view device_id,
+                                                            uint64_t alias) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  auto it = node_states_.find(std::make_pair(group_id, edge_node_id));
+  if (it == node_states_.end()) {
+    return std::nullopt;
+  }
+
+  const auto& node_state = it->second;
+
+  // If device_id is provided, look in device alias map
+  if (!device_id.empty()) {
+    // Use transparent comparator to avoid string construction
+    auto device_it = node_state.devices.find(device_id);
+    if (device_it == node_state.devices.end()) {
+      return std::nullopt;
+    }
+
+    const auto& device_state = device_it->second;
+    auto alias_it = device_state.alias_map.find(alias);
+    if (alias_it != device_state.alias_map.end()) {
+      return std::string_view(alias_it->second);
+    }
+    return std::nullopt;
+  }
+
+  // Otherwise, look in node alias map
+  auto alias_it = node_state.alias_map.find(alias);
+  if (alias_it != node_state.alias_map.end()) {
+    return std::string_view(alias_it->second);
   }
   return std::nullopt;
 }

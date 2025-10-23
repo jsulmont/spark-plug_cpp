@@ -119,6 +119,25 @@ public:
     bool is_online{false};      ///< True if DBIRTH received and device is online
     uint64_t last_seq{255};     ///< Last received device sequence number
     bool birth_received{false}; ///< True if DBIRTH has been received
+    std::unordered_map<uint64_t, std::string>
+        alias_map; ///< Maps metric alias to name (from DBIRTH)
+  };
+
+  /**
+   * @brief Transparent hash for string keys to enable heterogeneous lookup.
+   *
+   * Allows looking up std::unordered_map<std::string, T> with std::string_view
+   * without constructing a temporary std::string.
+   */
+  struct TransparentStringHash {
+    using is_transparent = void;
+    using hash_type = std::hash<std::string_view>;
+    [[nodiscard]] size_t operator()(std::string_view str) const noexcept {
+      return hash_type{}(str);
+    }
+    [[nodiscard]] size_t operator()(const std::string& str) const noexcept {
+      return hash_type{}(str);
+    }
   };
 
   /**
@@ -132,7 +151,10 @@ public:
     uint64_t bd_seq{0};          ///< Current birth/death sequence number
     uint64_t birth_timestamp{0}; ///< Timestamp of last NBIRTH
     bool birth_received{false};  ///< True if NBIRTH has been received
-    std::unordered_map<std::string, DeviceState> devices; ///< Attached devices (device_id -> state)
+    std::unordered_map<std::string, DeviceState, TransparentStringHash, std::equal_to<>>
+        devices; ///< Attached devices (device_id -> state)
+    std::unordered_map<uint64_t, std::string>
+        alias_map; ///< Maps metric alias to name (from NBIRTH)
   };
 
   /**
@@ -241,6 +263,43 @@ public:
    */
   [[nodiscard]] std::optional<std::reference_wrapper<const NodeState>>
   get_node_state(std::string_view group_id, std::string_view edge_node_id) const;
+
+  /**
+   * @brief Resolves a metric alias to its name for a specific node or device.
+   *
+   * Looks up the metric name that corresponds to the given alias, based on
+   * the alias mappings captured from NBIRTH (node metrics) or DBIRTH (device metrics).
+   *
+   * @param group_id The group ID
+   * @param edge_node_id The edge node ID
+   * @param device_id The device ID (empty string for node-level metrics)
+   * @param alias The metric alias to resolve
+   *
+   * @return A string_view to the metric name if found, std::nullopt otherwise
+   *
+   * @note Returns std::nullopt if the node/device hasn't sent a birth message yet,
+   *       or if the alias is not found in the birth message.
+   * @note The returned string_view remains valid until the node/device sends a new
+   *       birth message or is removed from tracking.
+   *
+   * @par Example Usage
+   * @code
+   * // In message callback:
+   * for (const auto& metric : payload.metrics()) {
+   *   if (metric.has_alias() && !metric.has_name()) {
+   *     auto name = subscriber.get_metric_name(topic.group_id, topic.edge_node_id,
+   *                                            topic.device_id, metric.alias());
+   *     if (name) {
+   *       std::cout << *name << " = " << metric.double_value() << "\n";
+   *     }
+   *   }
+   * }
+   * @endcode
+   */
+  [[nodiscard]] std::optional<std::string_view> get_metric_name(std::string_view group_id,
+                                                                std::string_view edge_node_id,
+                                                                std::string_view device_id,
+                                                                uint64_t alias) const;
 
   /**
    * @brief Sets a callback for receiving command messages (NCMD/DCMD).

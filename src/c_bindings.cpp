@@ -422,6 +422,35 @@ void sparkplug_subscriber_set_command_callback(sparkplug_subscriber_t* sub,
   }
 }
 
+int sparkplug_subscriber_get_metric_name(sparkplug_subscriber_t* sub, const char* group_id,
+                                         const char* edge_node_id, const char* device_id,
+                                         uint64_t alias, char* name_buffer, size_t buffer_size) {
+  if (!sub || !sub->impl || !group_id || !edge_node_id || !name_buffer || buffer_size == 0) {
+    return -1;
+  }
+
+  // Handle NULL device_id as empty string
+  std::string_view device_id_view = device_id ? device_id : "";
+
+  auto name = sub->impl->get_metric_name(group_id, edge_node_id, device_id_view, alias);
+
+  if (!name) {
+    // Alias not found or node/device not seen yet
+    return 0;
+  }
+
+  // Check if buffer is large enough (including null terminator)
+  if (name->size() + 1 > buffer_size) {
+    return -1;
+  }
+
+  // Copy name to buffer and null-terminate
+  std::memcpy(name_buffer, name->data(), name->size());
+  name_buffer[name->size()] = '\0';
+
+  return static_cast<int>(name->size() + 1);
+}
+
 // ============================================================================
 // Payload Functions
 // ============================================================================
