@@ -1,13 +1,13 @@
 # Sparkplug B C++ Library
 
-A modern C++23 implementation of the Eclipse Sparkplug B 2.2 specification for Industrial IoT.
+A modern C++-23 implementation of the Eclipse Sparkplug B 2.2 specification for Industrial IoT.
 
 **[📚 API Documentation](https://jsulmont.github.io/sparkplug-cpp/)** | [Sparkplug Specification](https://www.eclipse.org/tahu/spec/Sparkplug%20Topic%20Namespace%20and%20State%20ManagementV2.2-with%20appendix%20B%20format%20-%20Eclipse.pdf)
 
 ## Features
 
 - **Full Sparkplug B 2.2 Compliance** - Implements the complete specification
-- **Modern C++23** - Uses latest C++ features (std::expected, ranges, modules-ready)
+- **Modern C++-23** - Uses latest C++ features (std::expected, ranges, modules-ready)
 - **Type Safe** - Leverages strong typing and compile-time checks
 - **TLS/SSL Support** - Secure MQTT connections with optional mutual authentication
 - **Easy Integration** - Simple Publisher/Subscriber API
@@ -21,6 +21,7 @@ Full API documentation is available online **[here](https://jsulmont.github.io/s
 The documentation includes complete API reference, examples, and class diagrams.
 
 To regenerate locally:
+
 ```bash
 cmake --build build --target docs
 ```
@@ -40,7 +41,7 @@ Learn more: [Eclipse Sparkplug Specification](https://www.eclipse.org/tahu/spec/
 
 ### Prerequisites
 
-- C++23 compatible compiler (Clang 16+ or GCC 13+)
+- C++-23 compatible compiler (Clang 16+ or GCC 14+)
 - CMake 3.25+
 - Eclipse Paho MQTT C library
 - Protocol Buffers (protobuf)
@@ -61,7 +62,24 @@ cmake --preset default
 cmake --build build
 ```
 
-**Linux (Arch Linux - Recommended):**
+**Linux (Fedora - Recommended for Production):**
+
+```bash
+# Install system dependencies
+sudo dnf install -y \
+    gcc-c++ clang cmake ninja-build \
+    protobuf-devel abseil-cpp-devel \
+    paho-c-devel openssl-devel \
+    mosquitto
+
+# Clone and build sparkplug_cpp
+git clone <repository-url>
+cd sparkplug_cpp
+cmake --preset default
+cmake --build build -j$(nproc)
+```
+
+**Linux (Arch Linux - Development):**
 
 ```bash
 # Install system dependencies
@@ -89,9 +107,9 @@ cmake --build build -j$(nproc)
 
 **Linux (Ubuntu/Debian):**
 
- **Not currently supported** - Ubuntu 24.04's standard library lacks required C++23 features (`std::ranges::to`). Use Arch Linux instead.
+**Not currently supported** - Ubuntu 24.04's standard library lacks required C++-23 features (`std::expected`). Use Fedora 40+ or Arch Linux instead.
 
-**Note:** This project requires full C++23 support including `std::expected` and `std::ranges::to`. Arch Linux with libc++ provides complete implementations.
+**Note:** This project requires full C++-23 support including `std::expected` and `std::ranges::to`. Fedora 40+ ships GCC 14 with complete implementations. Arch Linux also works but is less stable for production.
 
 ### Basic Publisher Example
 

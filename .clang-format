@@ -1,6 +1,6 @@
 ---
 # clang-format configuration for sparkplug_cpp
-# Based on LLVM style with customizations for modern C++23
+# Based on LLVM style with customizations for modern C++-23
 
 BasedOnStyle: LLVM
 
