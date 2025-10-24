@@ -1,6 +1,6 @@
 ---
 # clang-tidy configuration for sparkplug-cpp
-# Modern C++23 linting with focus on correctness, performance, and readability
+# Modern C++-23 linting with focus on correctness, performance, and readability
 
 Checks: >
   bugprone-assert-side-effect,

@@ -47,8 +47,7 @@ if(APPLE)
     set(Protobuf_INCLUDE_DIR "/opt/homebrew/include")
     set(Protobuf_PROTOC_EXECUTABLE "/opt/homebrew/bin/protoc")
 elseif(UNIX)
-    # Linux: Use libstdc++ (default) - we use tl::expected polyfill for C++23 features
-    # No special flags needed
+    # Linux: No special flags needed (use distribution's default stdlib)
 endif()
 
 # Common warning flags
