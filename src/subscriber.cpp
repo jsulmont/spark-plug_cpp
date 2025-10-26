@@ -3,7 +3,6 @@
 
 #include <format>
 #include <future>
-#include <print>
 #include <thread>
 #include <utility>
 
@@ -12,34 +11,29 @@
 namespace sparkplug {
 
 namespace {
-// Timeout and connection constants
 constexpr int CONNECTION_TIMEOUT_MS = 5000;
 constexpr int DISCONNECT_TIMEOUT_MS = 10000;
 constexpr uint64_t SEQ_NUMBER_MAX = 256;
 constexpr int DEFAULT_KEEP_ALIVE_INTERVAL = 60;
 
-// Callback for successful connection
 void on_connect_success(void* context, MQTTAsync_successData* response) {
   (void)response;
   auto* promise = static_cast<std::promise<void>*>(context);
   promise->set_value();
 }
 
-// Callback for failed connection
 void on_connect_failure(void* context, MQTTAsync_failureData* response) {
   auto* promise = static_cast<std::promise<void>*>(context);
   auto error = std::format("Connection failed: code={}", response ? response->code : -1);
   promise->set_exception(std::make_exception_ptr(std::runtime_error(error)));
 }
 
-// Callback for successful disconnection
 void on_disconnect_success(void* context, MQTTAsync_successData* response) {
   (void)response;
   auto* promise = static_cast<std::promise<void>*>(context);
   promise->set_value();
 }
 
-// Callback for failed disconnection
 void on_disconnect_failure(void* context, MQTTAsync_failureData* response) {
   auto* promise = static_cast<std::promise<void>*>(context);
   auto error = std::format("Disconnect failed: code={}", response ? response->code : -1);
@@ -55,9 +49,7 @@ Subscriber::Subscriber(Config config, MessageCallback callback)
 Subscriber::Subscriber(Subscriber&& other) noexcept
     : callback_(std::move(other.callback_)), command_callback_(std::move(other.command_callback_)),
       config_(std::move(other.config_)), client_(std::move(other.client_)),
-      node_states_(std::move(other.node_states_))
-// mutex_ is default-constructed (mutexes are not moveable)
-{
+      node_states_(std::move(other.node_states_)) {
 }
 
 Subscriber& Subscriber::operator=(Subscriber&& other) noexcept {
@@ -76,6 +68,12 @@ Subscriber& Subscriber::operator=(Subscriber&& other) noexcept {
   return *this;
 }
 
+void Subscriber::log(LogLevel level, std::string_view message) const {
+  if (config_.log_callback) {
+    config_.log_callback(level, message);
+  }
+}
+
 bool Subscriber::validate_message(const Topic& topic,
                                   const org::eclipse::tahu::protobuf::Payload& payload) {
   if (!config_.validate_sequence) {
@@ -89,8 +87,8 @@ bool Subscriber::validate_message(const Topic& topic,
   switch (topic.message_type) {
   case MessageType::NBIRTH: {
     if (payload.has_seq() && payload.seq() != 0) {
-      std::print(stderr, "WARNING: NBIRTH for {} has invalid seq: {} (expected 0)\n", node_id,
-                 payload.seq());
+      log(LogLevel::WARN,
+          std::format("NBIRTH for {} has invalid seq: {} (expected 0)", node_id, payload.seq()));
       return false;
     }
 
@@ -105,7 +103,7 @@ bool Subscriber::validate_message(const Topic& topic,
     }
 
     if (!has_bdseq) {
-      std::print(stderr, "WARNING: NBIRTH for {} missing required bdSeq metric\n", node_id);
+      log(LogLevel::WARN, std::format("NBIRTH for {} missing required bdSeq metric", node_id));
       return false;
     }
 
@@ -115,7 +113,6 @@ bool Subscriber::validate_message(const Topic& topic,
     state.birth_received = true;
     state.birth_timestamp = payload.timestamp();
 
-    // Capture alias mappings from NBIRTH
     state.alias_map.clear();
     for (const auto& metric : payload.metrics()) {
       if (metric.has_alias() && metric.has_name()) {
@@ -136,8 +133,8 @@ bool Subscriber::validate_message(const Topic& topic,
     }
 
     if (state.birth_received && bd_seq != state.bd_seq) {
-      std::print(stderr, "WARNING: NDEATH bdSeq mismatch for {} (NDEATH: {}, NBIRTH: {})\n",
-                 node_id, bd_seq, state.bd_seq);
+      log(LogLevel::WARN, std::format("NDEATH bdSeq mismatch for {} (NDEATH: {}, NBIRTH: {})",
+                                      node_id, bd_seq, state.bd_seq));
     }
 
     state.is_online = false;
@@ -146,7 +143,7 @@ bool Subscriber::validate_message(const Topic& topic,
 
   case MessageType::NDATA: {
     if (!state.birth_received) {
-      std::print(stderr, "WARNING: Received NDATA for {} before NBIRTH\n", node_id);
+      log(LogLevel::WARN, std::format("Received NDATA for {} before NBIRTH", node_id));
       return false;
     }
 
@@ -155,8 +152,8 @@ bool Subscriber::validate_message(const Topic& topic,
       uint64_t expected_seq = (state.last_seq + 1) % SEQ_NUMBER_MAX;
 
       if (seq != expected_seq) {
-        std::print(stderr, "WARNING: Sequence number gap for {} (got {}, expected {})\n", node_id,
-                   seq, expected_seq);
+        log(LogLevel::WARN, std::format("Sequence number gap for {} (got {}, expected {})", node_id,
+                                        seq, expected_seq));
         // Don't reject, just warn - could be packet loss
       }
 
@@ -168,13 +165,15 @@ bool Subscriber::validate_message(const Topic& topic,
 
   case MessageType::DBIRTH: {
     if (!state.birth_received) {
-      std::print(stderr, "WARNING: Received DBIRTH for device on {} before node NBIRTH\n", node_id);
+      log(LogLevel::WARN,
+          std::format("Received DBIRTH for device on {} before node NBIRTH", node_id));
       return false;
     }
 
     if (payload.has_seq() && payload.seq() != 0) {
-      std::print(stderr, "WARNING: DBIRTH for device '{}' on {} has invalid seq: {} (expected 0)\n",
-                 topic.device_id, node_id, payload.seq());
+      log(LogLevel::WARN,
+          std::format("DBIRTH for device '{}' on {} has invalid seq: {} (expected 0)",
+                      topic.device_id, node_id, payload.seq()));
     }
 
     auto& device_state = state.devices[topic.device_id];
@@ -182,7 +181,6 @@ bool Subscriber::validate_message(const Topic& topic,
     device_state.birth_received = true;
     device_state.last_seq = 0;
 
-    // Capture alias mappings from DBIRTH
     device_state.alias_map.clear();
     for (const auto& metric : payload.metrics()) {
       if (metric.has_alias() && metric.has_name()) {
@@ -195,15 +193,15 @@ bool Subscriber::validate_message(const Topic& topic,
 
   case MessageType::DDATA: {
     if (!state.birth_received) {
-      std::print(stderr, "WARNING: Received DDATA for device '{}' on {} before node NBIRTH\n",
-                 topic.device_id, node_id);
+      log(LogLevel::WARN, std::format("Received DDATA for device '{}' on {} before node NBIRTH",
+                                      topic.device_id, node_id));
       return false;
     }
 
     auto device_it = state.devices.find(topic.device_id);
     if (device_it == state.devices.end() || !device_it->second.birth_received) {
-      std::print(stderr, "WARNING: Received DDATA for device '{}' on {} before DBIRTH\n",
-                 topic.device_id, node_id);
+      log(LogLevel::WARN, std::format("Received DDATA for device '{}' on {} before DBIRTH",
+                                      topic.device_id, node_id));
       return false;
     }
 
@@ -214,9 +212,9 @@ bool Subscriber::validate_message(const Topic& topic,
       uint64_t expected_seq = (device_state.last_seq + 1) % SEQ_NUMBER_MAX;
 
       if (seq != expected_seq) {
-        std::print(stderr,
-                   "WARNING: Sequence number gap for device '{}' on {} (got {}, expected {})\n",
-                   topic.device_id, node_id, seq, expected_seq);
+        log(LogLevel::WARN,
+            std::format("Sequence number gap for device '{}' on {} (got {}, expected {})",
+                        topic.device_id, node_id, seq, expected_seq));
         // Don't reject, just warn - could be packet loss
       }
 
@@ -358,7 +356,6 @@ std::expected<void, std::string> Subscriber::connect() {
   conn_opts.keepAliveInterval = DEFAULT_KEEP_ALIVE_INTERVAL;
   conn_opts.cleansession = config_.clean_session;
 
-  // Setup TLS/SSL if configured
   MQTTAsync_SSLOptions ssl_opts = MQTTAsync_SSLOptions_initializer;
   if (config_.tls.has_value()) {
     const auto& tls = config_.tls.value();
@@ -530,9 +527,7 @@ std::optional<std::string_view> Subscriber::get_metric_name(std::string_view gro
 
   const auto& node_state = it->second;
 
-  // If device_id is provided, look in device alias map
   if (!device_id.empty()) {
-    // Use transparent comparator to avoid string construction
     auto device_it = node_state.devices.find(device_id);
     if (device_it == node_state.devices.end()) {
       return std::nullopt;
@@ -546,7 +541,6 @@ std::optional<std::string_view> Subscriber::get_metric_name(std::string_view gro
     return std::nullopt;
   }
 
-  // Otherwise, look in node alias map
   auto alias_it = node_state.alias_map.find(alias);
   if (alias_it != node_state.alias_map.end()) {
     return std::string_view(alias_it->second);

@@ -54,9 +54,30 @@ int main() {
   std::signal(SIGINT, signal_handler);
   std::signal(SIGTERM, signal_handler);
 
+  // Optional: Set up logging callback to see library warnings
+  auto log_callback = [](sparkplug::LogLevel level, std::string_view message) {
+    const char* level_str = "UNKNOWN";
+    switch (level) {
+    case sparkplug::LogLevel::DEBUG:
+      level_str = "DEBUG";
+      break;
+    case sparkplug::LogLevel::INFO:
+      level_str = "INFO";
+      break;
+    case sparkplug::LogLevel::WARN:
+      level_str = "WARN";
+      break;
+    case sparkplug::LogLevel::ERROR:
+      level_str = "ERROR";
+      break;
+    }
+    std::cerr << "[" << level_str << "] " << message << "\n";
+  };
+
   sparkplug::Subscriber::Config config{.broker_url = "tcp://localhost:1883",
                                        .client_id = "sparkplug_subscriber_example",
-                                       .group_id = "Energy"};
+                                       .group_id = "Energy",
+                                       .log_callback = log_callback};
 
   auto message_handler = [](const sparkplug::Topic& topic,
                             const org::eclipse::tahu::protobuf::Payload& payload) {

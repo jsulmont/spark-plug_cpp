@@ -55,6 +55,50 @@ typedef struct sparkplug_subscriber sparkplug_subscriber_t;
 typedef struct sparkplug_payload sparkplug_payload_t;
 
 /**
+ * @brief Log severity levels for library diagnostics.
+ */
+typedef enum {
+  SPARKPLUG_LOG_DEBUG = 0, /**< Detailed debugging information */
+  SPARKPLUG_LOG_INFO = 1,  /**< Informational messages */
+  SPARKPLUG_LOG_WARN = 2,  /**< Warning messages (potential issues) */
+  SPARKPLUG_LOG_ERROR = 3  /**< Error messages (serious problems) */
+} sparkplug_log_level_t;
+
+/**
+ * @brief Callback function type for receiving log messages from the library.
+ *
+ * The library will call this function to report warnings, errors, and debug information.
+ * If no callback is set, logging is silently disabled (zero overhead).
+ *
+ * @param level Log severity level
+ * @param message Log message (null-terminated string)
+ * @param message_len Length of message in bytes (excluding null terminator)
+ * @param user_data User-provided context pointer
+ *
+ * @par Example Usage (integrating with syslog)
+ * @code
+ * void my_log_callback(int level, const char* msg, size_t len, void* user_data) {
+ *     if (level >= SPARKPLUG_LOG_WARN) {
+ *         syslog(LOG_WARNING, "[sparkplug] %.*s", (int)len, msg);
+ *     }
+ * }
+ * @endcode
+ *
+ * @par Example Usage (Rust FFI)
+ * @code{.rust}
+ * extern "C" fn log_callback(level: c_int, msg: *const c_char, len: usize, _user_data: *mut c_void)
+ * { let level = match level { 0 => log::Level::Debug, 1 => log::Level::Info, 2 => log::Level::Warn,
+ *         _ => log::Level::Error,
+ *     };
+ *     let msg = unsafe { std::slice::from_raw_parts(msg as *const u8, len) };
+ *     log::log!(level, "{}", String::from_utf8_lossy(msg));
+ * }
+ * @endcode
+ */
+typedef void (*sparkplug_log_callback_t)(int level, const char* message, size_t message_len,
+                                         void* user_data);
+
+/**
  * @brief Callback function type for receiving Sparkplug messages.
  *
  * @param topic MQTT topic string
@@ -511,6 +555,30 @@ int sparkplug_subscriber_subscribe_group(sparkplug_subscriber_t* sub, const char
  * @return 0 on success, -1 on failure
  */
 int sparkplug_subscriber_subscribe_state(sparkplug_subscriber_t* sub, const char* host_id);
+
+/**
+ * @brief Sets a log callback for receiving library diagnostic messages.
+ *
+ * @param sub Subscriber handle
+ * @param callback Callback function to invoke for log messages
+ * @param user_data User-provided context pointer passed to callback
+ *
+ * @note Set callback to NULL to disable logging (zero overhead).
+ * @note The callback may be invoked from any thread.
+ * @note Keep callback execution fast to avoid blocking internal operations.
+ *
+ * @par Example Usage
+ * @code
+ * void my_log_fn(int level, const char* msg, size_t len, void* ud) {
+ *     if (level >= SPARKPLUG_LOG_WARN) {
+ *         fprintf(stderr, "[WARN] %.*s\n", (int)len, msg);
+ *     }
+ * }
+ * sparkplug_subscriber_set_log_callback(sub, my_log_fn, NULL);
+ * @endcode
+ */
+void sparkplug_subscriber_set_log_callback(sparkplug_subscriber_t* sub,
+                                           sparkplug_log_callback_t callback, void* user_data);
 
 /**
  * @brief Sets a callback for receiving command messages (NCMD/DCMD).

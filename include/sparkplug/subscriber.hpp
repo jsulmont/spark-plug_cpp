@@ -16,6 +16,53 @@
 namespace sparkplug {
 
 /**
+ * @brief Log severity levels for library diagnostics.
+ */
+enum class LogLevel {
+  DEBUG = 0, ///< Detailed debugging information
+  INFO = 1,  ///< Informational messages
+  WARN = 2,  ///< Warning messages (potential issues)
+  ERROR = 3  ///< Error messages (serious problems)
+};
+
+/**
+ * @brief Callback function type for receiving log messages from the library.
+ *
+ * The library will call this function to report warnings, errors, and debug information.
+ * If no callback is set, logging is silently disabled (zero overhead).
+ *
+ * @param level The severity level of the log message
+ * @param message The log message text
+ *
+ * @note The callback may be invoked from any thread (typically the MQTT client thread).
+ * @note Keep callback execution fast to avoid blocking internal operations.
+ *
+ * @par Example Usage (C++)
+ * @code
+ * auto log_callback = [](sparkplug::LogLevel level, std::string_view message) {
+ *   if (level >= sparkplug::LogLevel::WARN) {
+ *     spdlog::warn("[sparkplug] {}", message);
+ *   }
+ * };
+ * @endcode
+ *
+ * @par Example Usage (Rust FFI)
+ * @code{.rust}
+ * extern "C" fn log_callback(level: c_int, msg: *const c_char, msg_len: usize) {
+ *     let level = match level {
+ *         0 => log::Level::Debug,
+ *         1 => log::Level::Info,
+ *         2 => log::Level::Warn,
+ *         _ => log::Level::Error,
+ *     };
+ *     let msg = unsafe { std::slice::from_raw_parts(msg as *const u8, msg_len) };
+ *     log::log!(level, "{}", String::from_utf8_lossy(msg));
+ * }
+ * @endcode
+ */
+using LogCallback = std::function<void(LogLevel, std::string_view)>;
+
+/**
  * @brief Callback function type for receiving Sparkplug B messages.
  *
  * @param topic Parsed Sparkplug B topic containing group_id, message_type, edge_node_id, etc.
@@ -110,6 +157,7 @@ public:
     bool clean_session = true;       ///< MQTT clean session flag
     bool validate_sequence = true;   ///< Enable sequence number validation (detects packet loss)
     std::optional<TlsOptions> tls{}; ///< TLS/SSL options (required if broker_url uses ssl://)
+    LogCallback log_callback{};      ///< Optional callback for library log messages
   };
 
   /**
@@ -402,6 +450,7 @@ private:
   mutable std::mutex mutex_;
 
   bool validate_message(const Topic& topic, const org::eclipse::tahu::protobuf::Payload& payload);
+  void log(LogLevel level, std::string_view message) const;
 };
 
 } // namespace sparkplug

@@ -16,8 +16,10 @@ struct sparkplug_subscriber {
   std::unique_ptr<sparkplug::Subscriber> impl;
   sparkplug_message_callback_t callback;
   sparkplug_command_callback_t command_callback;
+  sparkplug_log_callback_t log_callback;
   void* user_data;
   void* command_user_data;
+  void* log_user_data;
 };
 
 struct sparkplug_payload {
@@ -333,11 +335,22 @@ sparkplug_subscriber_t* sparkplug_subscriber_create(const char* broker_url, cons
   auto* sub = new sparkplug_subscriber;
   sub->callback = callback;
   sub->command_callback = nullptr;
+  sub->log_callback = nullptr;
   sub->user_data = user_data;
   sub->command_user_data = nullptr;
+  sub->log_user_data = nullptr;
 
-  sparkplug::Subscriber::Config config{
-      .broker_url = broker_url, .client_id = client_id, .group_id = group_id};
+  sparkplug::LogCallback log_wrapper = [sub](sparkplug::LogLevel level, std::string_view message) {
+    if (sub->log_callback) {
+      int c_level = static_cast<int>(level);
+      sub->log_callback(c_level, message.data(), message.size(), sub->log_user_data);
+    }
+  };
+
+  sparkplug::Subscriber::Config config{.broker_url = broker_url,
+                                       .client_id = client_id,
+                                       .group_id = group_id,
+                                       .log_callback = std::move(log_wrapper)};
 
   auto message_handler = [sub](const sparkplug::Topic& topic,
                                const org::eclipse::tahu::protobuf::Payload& payload) {
@@ -392,6 +405,16 @@ int sparkplug_subscriber_subscribe_state(sparkplug_subscriber_t* sub, const char
   if (!sub || !sub->impl || !host_id)
     return -1;
   return sub->impl->subscribe_state(host_id).has_value() ? 0 : -1;
+}
+
+void sparkplug_subscriber_set_log_callback(sparkplug_subscriber_t* sub,
+                                           sparkplug_log_callback_t callback, void* user_data) {
+  if (!sub) {
+    return;
+  }
+
+  sub->log_callback = callback;
+  sub->log_user_data = user_data;
 }
 
 void sparkplug_subscriber_set_command_callback(sparkplug_subscriber_t* sub,
