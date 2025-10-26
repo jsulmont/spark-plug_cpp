@@ -207,7 +207,7 @@ void test_sequence_overflow() {
   }
 
   // Sequence should have wrapped at least once
-  uint64_t seq = pub.get_seq();
+  [[maybe_unused]] uint64_t seq = pub.get_seq();
   assert(seq < 256); // Should be within 0-255 range
 
   (void)pub.disconnect();

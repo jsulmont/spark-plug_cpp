@@ -55,6 +55,7 @@ void test_payload_add_metrics(void) {
   size_t size = sparkplug_payload_serialize(payload, buffer, sizeof(buffer));
   assert(size > 0);
   assert(size < sizeof(buffer));
+  (void)size;
 
   sparkplug_payload_destroy(payload);
   PASS();
@@ -74,6 +75,7 @@ void test_payload_add_with_alias(void) {
   uint8_t buffer[4096];
   size_t size = sparkplug_payload_serialize(payload, buffer, sizeof(buffer));
   assert(size > 0);
+  (void)size;
 
   sparkplug_payload_destroy(payload);
   PASS();
@@ -93,6 +95,7 @@ void test_payload_add_by_alias(void) {
   uint8_t buffer[4096];
   size_t size = sparkplug_payload_serialize(payload, buffer, sizeof(buffer));
   assert(size > 0);
+  (void)size;
 
   sparkplug_payload_destroy(payload);
   PASS();
@@ -112,6 +115,7 @@ void test_payload_timestamp_seq(void) {
   uint8_t buffer[4096];
   size_t size = sparkplug_payload_serialize(payload, buffer, sizeof(buffer));
   assert(size > 0);
+  (void)size;
 
   sparkplug_payload_destroy(payload);
   PASS();
@@ -127,6 +131,7 @@ void test_payload_empty(void) {
   uint8_t buffer[4096];
   size_t size = sparkplug_payload_serialize(payload, buffer, sizeof(buffer));
   assert(size > 0); /* Empty payload still has protobuf overhead */
+  (void)size;
 
   sparkplug_payload_destroy(payload);
   PASS();
@@ -202,6 +207,7 @@ void test_publisher_birth(void) {
   /* Check sequence is 0 after NBIRTH */
   uint64_t seq = sparkplug_publisher_get_seq(pub);
   assert(seq == 0);
+  (void)seq;
 
   sparkplug_payload_destroy(payload);
   sparkplug_publisher_disconnect(pub);
@@ -249,6 +255,7 @@ void test_publisher_data(void) {
   /* Check sequence incremented */
   uint64_t seq = sparkplug_publisher_get_seq(pub);
   assert(seq == 1);
+  (void)seq;
 
   sparkplug_payload_destroy(data);
   sparkplug_publisher_disconnect(pub);
@@ -297,6 +304,9 @@ void test_publisher_rebirth(void) {
 
   assert(new_bdseq == initial_bdseq + 1);
   assert(seq == 0);
+  (void)initial_bdseq;
+  (void)new_bdseq;
+  (void)seq;
 
   sparkplug_publisher_disconnect(pub);
   sparkplug_publisher_destroy(pub);
@@ -692,15 +702,18 @@ void test_payload_parse_and_read(void) {
   uint64_t timestamp;
   assert(sparkplug_payload_get_timestamp(parsed, &timestamp));
   assert(timestamp == 1234567890123ULL);
+  (void)timestamp;
 
   /* Read sequence */
   uint64_t seq;
   assert(sparkplug_payload_get_seq(parsed, &seq));
   assert(seq == 42);
+  (void)seq;
 
   /* Read metric count */
   size_t count = sparkplug_payload_get_metric_count(parsed);
   assert(count == 4);
+  (void)count;
 
   /* Read first metric (Temperature) */
   sparkplug_metric_t metric;
@@ -734,6 +747,7 @@ void test_payload_parse_and_read(void) {
 
   /* Test out of bounds */
   assert(!sparkplug_payload_get_metric_at(parsed, 4, &metric));
+  (void)metric;
 
   sparkplug_payload_destroy(parsed);
 
@@ -759,6 +773,7 @@ void test_payload_parse_alias_only(void) {
 
   size_t count = sparkplug_payload_get_metric_count(parsed);
   assert(count == 2);
+  (void)count;
 
   sparkplug_metric_t metric;
   assert(sparkplug_payload_get_metric_at(parsed, 0, &metric));
@@ -766,6 +781,7 @@ void test_payload_parse_alias_only(void) {
   assert(metric.has_alias);
   assert(metric.alias == 1);
   assert(metric.value.int32_value == 30);
+  (void)metric;
 
   sparkplug_payload_destroy(parsed);
 
@@ -786,6 +802,7 @@ void test_payload_parse_invalid(void) {
 
   parsed = sparkplug_payload_parse(invalid_data, 0);
   assert(parsed == NULL);
+  (void)parsed;
 
   PASS();
 }
@@ -811,14 +828,17 @@ void test_payload_parse_no_optional(void) {
   uint64_t timestamp;
   assert(sparkplug_payload_get_timestamp(parsed, &timestamp));
   assert(timestamp > 0);
+  (void)timestamp;
 
   /* Seq should not be present (wasn't set) */
   uint64_t seq;
   assert(!sparkplug_payload_get_seq(parsed, &seq));
+  (void)seq;
 
   /* UUID should be NULL (wasn't set) */
   const char* uuid = sparkplug_payload_get_uuid(parsed);
   assert(uuid == NULL);
+  (void)uuid;
 
   /* But metric should be there */
   assert(sparkplug_payload_get_metric_count(parsed) == 1);

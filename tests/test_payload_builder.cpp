@@ -141,20 +141,20 @@ void test_custom_timestamp() {
 void test_auto_timestamp() {
   sparkplug::PayloadBuilder payload;
 
-  auto before = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::system_clock::now().time_since_epoch())
-                    .count();
+  [[maybe_unused]] auto before = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::system_clock::now().time_since_epoch())
+                                     .count();
 
   payload.add_metric("test", 42);
 
-  auto after = std::chrono::duration_cast<std::chrono::milliseconds>(
-                   std::chrono::system_clock::now().time_since_epoch())
-                   .count();
+  [[maybe_unused]] auto after = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    std::chrono::system_clock::now().time_since_epoch())
+                                    .count();
 
   auto pb = payload.payload();
   assert(pb.metrics_size() == 1);
 
-  uint64_t ts = pb.metrics(0).timestamp();
+  [[maybe_unused]] uint64_t ts = pb.metrics(0).timestamp();
   assert(ts >= static_cast<uint64_t>(before));
   assert(ts <= static_cast<uint64_t>(after));
 
@@ -191,7 +191,7 @@ void test_payload_sequence() {
 void test_empty_payload() {
   sparkplug::PayloadBuilder payload;
 
-  const auto& pb = payload.payload();
+  [[maybe_unused]] const auto& pb = payload.payload();
   assert(pb.metrics_size() == 0);
 
   std::cout << "✓ Empty payload\n";
@@ -236,9 +236,9 @@ void test_node_control_metrics() {
   assert(pb.metrics_size() == 3);
 
   // Check metric names follow Node Control pattern
-  bool has_rebirth = false;
-  bool has_next_server = false;
-  bool has_scan_rate = false;
+  [[maybe_unused]] bool has_rebirth = false;
+  [[maybe_unused]] bool has_next_server = false;
+  [[maybe_unused]] bool has_scan_rate = false;
 
   for (int i = 0; i < pb.metrics_size(); i++) {
     if (pb.metrics(i).name() == "Node Control/Rebirth")
