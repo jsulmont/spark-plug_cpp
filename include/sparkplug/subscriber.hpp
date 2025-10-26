@@ -388,6 +388,16 @@ public:
   void update_node_state(const Topic& topic, const org::eclipse::tahu::protobuf::Payload& payload);
 
   /**
+   * @brief Logs a message through the configured log callback (internal use).
+   *
+   * @param level Log severity level
+   * @param message Log message
+   *
+   * @note Public for technical reasons (accessed by static MQTT callbacks).
+   */
+  void log(LogLevel level, std::string_view message) const;
+
+  /**
    * @brief User-provided callback for received messages.
    *
    * @note Public for technical reasons (accessed by static MQTT callback).
@@ -450,7 +460,6 @@ private:
   mutable std::mutex mutex_;
 
   bool validate_message(const Topic& topic, const org::eclipse::tahu::protobuf::Payload& payload);
-  void log(LogLevel level, std::string_view message) const;
 };
 
 } // namespace sparkplug

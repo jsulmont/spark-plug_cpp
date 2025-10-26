@@ -289,7 +289,7 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
   auto topic_result = Topic::parse(topic_str);
 
   if (!topic_result) {
-    std::print(stderr, "Failed to parse topic: {}\n", topic_str);
+    subscriber->log(LogLevel::ERROR, std::format("Failed to parse topic: {}", topic_str));
     MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;
@@ -297,7 +297,7 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
 
   org::eclipse::tahu::protobuf::Payload payload;
   if (!payload.ParseFromArray(message->payload, message->payloadlen)) {
-    std::print(stderr, "Failed to parse Sparkplug B payload\n");
+    subscriber->log(LogLevel::ERROR, "Failed to parse Sparkplug B payload");
     MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;
@@ -325,11 +325,15 @@ static int on_message_arrived(void* context, char* topicName, int topicLen,
 }
 
 static void on_connection_lost(void* context, char* cause) {
-  (void)context;
+  auto* subscriber = static_cast<Subscriber*>(context);
+  if (!subscriber) {
+    return;
+  }
+
   if (cause) {
-    std::print(stderr, "Connection lost: {}\n", cause);
+    subscriber->log(LogLevel::WARN, std::format("Connection lost: {}", cause));
   } else {
-    std::print(stderr, "Connection lost\n");
+    subscriber->log(LogLevel::WARN, "Connection lost");
   }
 }
 
