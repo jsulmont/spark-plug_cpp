@@ -451,11 +451,13 @@ std::expected<void, std::string> Publisher::rebirth() {
     return std::unexpected("Failed to parse stored birth payload");
   }
 
-  bd_seq_num_++;
+  // Note: bd_seq_num_ will be incremented by connect() call below
+  // We need to update the stored payload with the new bdSeq that connect() will set
+  uint64_t new_bdseq = bd_seq_num_ + 1;
 
   for (auto& metric : *proto_payload.mutable_metrics()) {
     if (metric.name() == "bdSeq") {
-      metric.set_long_value(bd_seq_num_);
+      metric.set_long_value(new_bdseq);
       break;
     }
   }
