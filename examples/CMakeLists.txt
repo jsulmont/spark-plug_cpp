@@ -20,6 +20,9 @@ target_link_libraries(subscriber_example PRIVATE sparkplug_cpp)
 add_executable(subscriber_example_debug subscriber_example_debug.cpp)
 target_link_libraries(subscriber_example_debug PRIVATE sparkplug_cpp)
 
+add_executable(subscriber_mimic_debug subscriber_mimic_debug.cpp)
+target_link_libraries(subscriber_mimic_debug PRIVATE sparkplug_cpp)
+
 add_executable(subscriber_multi_group_cli subscriber_multi_group_cli.cpp)
 target_link_libraries(subscriber_multi_group_cli PRIVATE sparkplug_cpp)
 
