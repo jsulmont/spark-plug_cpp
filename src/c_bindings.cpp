@@ -31,12 +31,13 @@ struct sparkplug_host_application {
 };
 
 static void copy_metrics_to_builder(sparkplug::PayloadBuilder& builder,
-                                    const org::eclipse::tahu::protobuf::Payload& proto_payload) {
+                                    const org::eclipse::tahu::protobuf::Payload& proto_payload,
+                                    bool copy_seq = true) {
   if (proto_payload.has_timestamp()) {
     builder.set_timestamp(proto_payload.timestamp());
   }
 
-  if (proto_payload.has_seq()) {
+  if (copy_seq && proto_payload.has_seq()) {
     builder.set_seq(proto_payload.seq());
   }
 
@@ -232,7 +233,7 @@ int sparkplug_publisher_publish_data(sparkplug_publisher_t* pub, const uint8_t* 
   }
 
   sparkplug::PayloadBuilder builder;
-  copy_metrics_to_builder(builder, proto_payload);
+  copy_metrics_to_builder(builder, proto_payload, false);
 
   return pub->impl.publish_data(builder).has_value() ? 0 : -1;
 }
@@ -288,7 +289,7 @@ int sparkplug_publisher_publish_device_data(sparkplug_publisher_t* pub, const ch
   }
 
   sparkplug::PayloadBuilder builder;
-  copy_metrics_to_builder(builder, proto_payload);
+  copy_metrics_to_builder(builder, proto_payload, false);
 
   return pub->impl.publish_device_data(device_id, builder).has_value() ? 0 : -1;
 }

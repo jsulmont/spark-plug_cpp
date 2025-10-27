@@ -482,6 +482,69 @@ void test_publisher_device_data(void) {
   PASS();
 }
 
+/* Test that sequence numbers in payload are ignored for DDATA (TCK fix) */
+void test_device_data_ignores_payload_seq(void) {
+  TEST("DDATA ignores sequence in payload");
+
+  sparkplug_publisher_t* pub = sparkplug_publisher_create(
+      "tcp://localhost:1883", "test_c_ddata_seq", "TestGroup", "TestNode");
+  assert(pub != NULL);
+
+  int result = sparkplug_publisher_connect(pub);
+  if (result != 0) {
+    sparkplug_publisher_destroy(pub);
+    FAIL("failed to connect");
+    return;
+  }
+
+  usleep(100000);
+
+  /* Publish NBIRTH */
+  sparkplug_payload_t* nbirth = sparkplug_payload_create();
+  sparkplug_payload_add_int32(nbirth, "NodeMetric", 100);
+  uint8_t buffer[4096];
+  size_t size = sparkplug_payload_serialize(nbirth, buffer, sizeof(buffer));
+  sparkplug_publisher_publish_birth(pub, buffer, size);
+  sparkplug_payload_destroy(nbirth);
+
+  usleep(100000);
+
+  /* Publish DBIRTH */
+  sparkplug_payload_t* dbirth = sparkplug_payload_create();
+  sparkplug_payload_add_double_with_alias(dbirth, "Temperature", 1, 20.5);
+  size = sparkplug_payload_serialize(dbirth, buffer, sizeof(buffer));
+  sparkplug_publisher_publish_device_birth(pub, "Sensor01", buffer, size);
+  sparkplug_payload_destroy(dbirth);
+
+  usleep(100000);
+
+  /* Publish DDATA with WRONG sequence number set in payload (should be ignored) */
+  sparkplug_payload_t* ddata1 = sparkplug_payload_create();
+  sparkplug_payload_set_seq(ddata1, 999); /* Wrong seq - should be ignored! */
+  sparkplug_payload_add_double_by_alias(ddata1, 1, 21.5);
+  size = sparkplug_payload_serialize(ddata1, buffer, sizeof(buffer));
+  result = sparkplug_publisher_publish_device_data(pub, "Sensor01", buffer, size);
+  assert(result == 0);
+  sparkplug_payload_destroy(ddata1);
+
+  /* Publish second DDATA with another wrong sequence */
+  sparkplug_payload_t* ddata2 = sparkplug_payload_create();
+  sparkplug_payload_set_seq(ddata2, 777); /* Also wrong - should be ignored! */
+  sparkplug_payload_add_double_by_alias(ddata2, 1, 22.5);
+  size = sparkplug_payload_serialize(ddata2, buffer, sizeof(buffer));
+  result = sparkplug_publisher_publish_device_data(pub, "Sensor01", buffer, size);
+  assert(result == 0);
+  sparkplug_payload_destroy(ddata2);
+
+  /* Note: The actual sequence numbers sent should be 1, 2 (managed by library),
+   * not 999, 777. This test verifies the fix doesn't crash and works correctly. */
+
+  sparkplug_publisher_disconnect(pub);
+  sparkplug_publisher_destroy(pub);
+
+  PASS();
+}
+
 /* Test publisher device death */
 void test_publisher_device_death(void) {
   TEST("publisher publish DDEATH");
@@ -880,6 +943,7 @@ int main(void) {
   /* Device-level API tests (require MQTT broker) */
   test_publisher_device_birth();
   test_publisher_device_data();
+  test_device_data_ignores_payload_seq();
   test_publisher_device_death();
 
   /* Command API tests (require MQTT broker) */

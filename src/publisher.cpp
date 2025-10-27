@@ -162,6 +162,9 @@ std::expected<void, std::string> Publisher::connect() {
   }
   client_ = MQTTAsyncHandle(raw_client);
 
+  // Increment bdSeq for this session (Sparkplug spec requires bdSeq to start at 1)
+  bd_seq_num_++;
+
   // Prepare NDEATH payload BEFORE connecting
   PayloadBuilder death_payload;
   death_payload.add_metric("bdSeq", bd_seq_num_);
@@ -383,7 +386,6 @@ std::expected<void, std::string> Publisher::publish_birth(PayloadBuilder& payloa
   last_birth_payload_ = std::move(payload_data);
 
   seq_num_ = 0;
-  bd_seq_num_++;
 
   return {};
 }
