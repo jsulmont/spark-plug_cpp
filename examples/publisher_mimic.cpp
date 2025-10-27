@@ -36,10 +36,12 @@ int main() {
   std::cout << "=================================================================\n\n";
 
   // Command callback to handle NCMD messages (rebirth, reboot, etc.)
-  sparkplug::Publisher* publisher_ptr = nullptr;
+  // Use atomic flag to signal rebirth request to main thread
+  std::atomic<bool> rebirth_requested{false};
 
-  auto command_callback = [&publisher_ptr](const sparkplug::Topic& topic,
-                                           const org::eclipse::tahu::protobuf::Payload& payload) {
+  auto command_callback = [&rebirth_requested](
+                              const sparkplug::Topic& topic,
+                              const org::eclipse::tahu::protobuf::Payload& payload) {
     std::cout << "\n>>> Received NCMD command from Host Application <<<\n";
     std::cout << "    Topic: " << topic.to_string() << "\n";
     std::cout << "    Metrics: " << payload.metrics_size() << "\n";
@@ -47,22 +49,10 @@ int main() {
     for (const auto& metric : payload.metrics()) {
       std::cout << "    - " << metric.name();
 
-      // Check for Node Control/Rebirth command
       if (metric.name() == "Node Control/Rebirth" && metric.has_boolean_value() &&
           metric.boolean_value()) {
         std::cout << " = true (REBIRTH REQUESTED)\n";
-
-        if (publisher_ptr) {
-          std::cout << "\n!!! Executing rebirth sequence !!!\n";
-          auto result = publisher_ptr->rebirth();
-          if (!result) {
-            std::cerr << "Failed to rebirth: " << result.error() << "\n";
-          } else {
-            std::cout << "Rebirth complete!\n";
-            std::cout << "  New bdSeq: " << publisher_ptr->get_bd_seq() << "\n";
-            std::cout << "  Sequence reset to: " << publisher_ptr->get_seq() << "\n\n";
-          }
-        }
+        rebirth_requested.store(true);
       } else if (metric.name() == "Node Control/Reboot" && metric.has_boolean_value() &&
                  metric.boolean_value()) {
         std::cout << " = true (REBOOT REQUESTED - simulating)\n";
@@ -93,7 +83,6 @@ int main() {
   };
 
   sparkplug::Publisher publisher(std::move(config));
-  publisher_ptr = &publisher;
 
   std::cout << "Connecting to broker...\n";
   auto connect_result = publisher.connect();
@@ -152,6 +141,19 @@ int main() {
   std::cout << "Waiting for NCMD rebirth commands from Host Applications...\n\n";
 
   while (running) {
+    // Check if rebirth was requested by NCMD callback
+    if (rebirth_requested.exchange(false)) {
+      std::cout << "\n!!! Executing rebirth sequence !!!\n";
+      auto result = publisher.rebirth();
+      if (!result) {
+        std::cerr << "Failed to rebirth: " << result.error() << "\n";
+      } else {
+        std::cout << "Rebirth complete!\n";
+        std::cout << "  New bdSeq: " << publisher.get_bd_seq() << "\n";
+        std::cout << "  Sequence reset to: " << publisher.get_seq() << "\n\n";
+      }
+    }
+
     // Create NDATA payload with changing values
     sparkplug::PayloadBuilder data;
 
@@ -183,7 +185,6 @@ int main() {
 
   std::cout << "\n\nShutting down...\n";
 
-  // Graceful disconnect will trigger NDEATH via MQTT Will
   auto disconnect_result = publisher.disconnect();
   if (!disconnect_result) {
     std::cerr << "Failed to disconnect: " << disconnect_result.error() << "\n";
