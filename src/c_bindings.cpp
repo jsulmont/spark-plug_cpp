@@ -386,7 +386,15 @@ sparkplug_subscriber_t* sparkplug_subscriber_create(const char* broker_url, cons
         payload.SerializeToArray(data.data(), static_cast<int>(data.size()));
 
         auto topic_str = topic.to_string();
-        sub->callback(topic_str.c_str(), data.data(), data.size(), sub->user_data);
+
+        // Check if this is a command message and if command_callback is set
+        if ((topic.message_type == sparkplug::MessageType::NCMD ||
+             topic.message_type == sparkplug::MessageType::DCMD) &&
+            sub->command_callback) {
+          sub->command_callback(topic_str.c_str(), data.data(), data.size(), sub->command_user_data);
+        } else {
+          sub->callback(topic_str.c_str(), data.data(), data.size(), sub->user_data);
+        }
       };
 
   sparkplug::HostApplication::Config config{
@@ -493,8 +501,7 @@ void sparkplug_subscriber_set_command_callback(sparkplug_subscriber_t* sub,
 
   // NOTE: HostApplication doesn't have a separate set_command_callback method
   // Commands (NCMD/DCMD) are received through the main message_callback
-  // which is already set up in sparkplug_subscriber_create
-  (void)callback;
+  // which now dispatches to command_callback if set (see sparkplug_subscriber_create)
 }
 
 int sparkplug_subscriber_get_metric_name(sparkplug_subscriber_t* sub, const char* group_id,
