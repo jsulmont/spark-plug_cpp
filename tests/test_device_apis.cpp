@@ -32,7 +32,7 @@ void test_dbirth_requires_nbirth() {
   sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
                                      .client_id = "test_device_nbirth",
                                      .group_id = "TestGroup",
-                                     .edge_node_id = "TestNode"};
+                                     .edge_node_id = "TestNodeDev01"};
 
   sparkplug::EdgeNode pub(std::move(config));
 
@@ -92,7 +92,7 @@ void test_dbirth_sequence_zero() {
   sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
                                          .client_id = "test_dbirth_seq_pub",
                                          .group_id = "TestGroup",
-                                         .edge_node_id = "TestNode"};
+                                         .edge_node_id = "TestNodeDev02"};
 
   sparkplug::EdgeNode pub(std::move(pub_config));
 
@@ -142,7 +142,7 @@ void test_ddata_requires_dbirth() {
   sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
                                      .client_id = "test_ddata_birth",
                                      .group_id = "TestGroup",
-                                     .edge_node_id = "TestNode"};
+                                     .edge_node_id = "TestNodeDev03"};
 
   sparkplug::EdgeNode pub(std::move(config));
 
@@ -218,7 +218,7 @@ void test_device_sequence_independent() {
   sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
                                          .client_id = "test_seq_indep_pub",
                                          .group_id = "TestGroup",
-                                         .edge_node_id = "TestNode"};
+                                         .edge_node_id = "TestNodeDev04"};
 
   sparkplug::EdgeNode pub(std::move(pub_config));
 
@@ -325,7 +325,7 @@ void test_ddata_sequence_increments() {
   sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
                                          .client_id = "test_ddata_seq_pub",
                                          .group_id = "TestGroup",
-                                         .edge_node_id = "TestNode"};
+                                         .edge_node_id = "TestNodeDev05"};
 
   sparkplug::EdgeNode pub(std::move(pub_config));
 
@@ -440,7 +440,7 @@ void test_ddeath() {
   sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
                                          .client_id = "test_ddeath_pub",
                                          .group_id = "TestGroup",
-                                         .edge_node_id = "TestNode"};
+                                         .edge_node_id = "TestNodeDev06"};
 
   sparkplug::EdgeNode pub(std::move(pub_config));
 

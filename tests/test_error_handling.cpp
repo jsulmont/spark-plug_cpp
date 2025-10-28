@@ -11,7 +11,7 @@ void test_invalid_broker_url() {
   sparkplug::EdgeNode::Config config{.broker_url = "invalid://bad_url:99999",
                                      .client_id = "test_invalid",
                                      .group_id = "Test",
-                                     .edge_node_id = "Node"};
+                                     .edge_node_id = "NodeErr01"};
 
   sparkplug::EdgeNode pub(std::move(config));
 
@@ -26,7 +26,7 @@ void test_publish_before_connect() {
   sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
                                      .client_id = "test_no_connect",
                                      .group_id = "Test",
-                                     .edge_node_id = "Node"};
+                                     .edge_node_id = "NodeErr02"};
 
   sparkplug::EdgeNode pub(std::move(config));
 
@@ -44,7 +44,7 @@ void test_publish_data_before_birth() {
   sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
                                      .client_id = "test_no_birth",
                                      .group_id = "Test",
-                                     .edge_node_id = "Node"};
+                                     .edge_node_id = "NodeErr03"};
 
   sparkplug::EdgeNode pub(std::move(config));
 
@@ -70,7 +70,7 @@ void test_double_connect() {
   sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
                                      .client_id = "test_double_conn",
                                      .group_id = "Test",
-                                     .edge_node_id = "Node"};
+                                     .edge_node_id = "NodeErr04"};
 
   sparkplug::EdgeNode pub(std::move(config));
 
@@ -93,7 +93,7 @@ void test_disconnect_not_connected() {
   sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
                                      .client_id = "test_disc_no_conn",
                                      .group_id = "Test",
-                                     .edge_node_id = "Node"};
+                                     .edge_node_id = "NodeErr05"};
 
   sparkplug::EdgeNode pub(std::move(config));
 
@@ -124,7 +124,7 @@ void test_move_semantics() {
   sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
                                      .client_id = "test_move",
                                      .group_id = "Test",
-                                     .edge_node_id = "Node"};
+                                     .edge_node_id = "NodeErr06"};
 
   sparkplug::EdgeNode pub1(std::move(config));
 
@@ -173,7 +173,7 @@ void test_subscriber_subscribe_before_connect() {
 void test_empty_config_fields() {
   // Empty broker URL should fail
   sparkplug::EdgeNode::Config config1{
-      .broker_url = "", .client_id = "test", .group_id = "Test", .edge_node_id = "Node"};
+      .broker_url = "", .client_id = "test", .group_id = "Test", .edge_node_id = "NodeErr07"};
 
   sparkplug::EdgeNode pub1(std::move(config1));
   auto result1 = pub1.connect();
@@ -188,7 +188,7 @@ void test_sequence_overflow() {
   sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
                                      .client_id = "test_seq_overflow",
                                      .group_id = "Test",
-                                     .edge_node_id = "Node"};
+                                     .edge_node_id = "NodeErr08"};
 
   sparkplug::EdgeNode pub(std::move(config));
 

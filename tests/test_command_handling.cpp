@@ -68,7 +68,7 @@ void test_ncmd_callback_invoked() {
   sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
                                          .client_id = "test_ncmd_pub",
                                          .group_id = "TestGroup",
-                                         .edge_node_id = "ScadaHost"};
+                                         .edge_node_id = "ScadaHostCmd01"};
 
   sparkplug::EdgeNode pub(std::move(pub_config));
 
@@ -153,7 +153,7 @@ void test_dcmd_callback_invoked() {
   sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
                                          .client_id = "test_dcmd_pub",
                                          .group_id = "TestGroup",
-                                         .edge_node_id = "ScadaHost"};
+                                         .edge_node_id = "ScadaHostCmd02"};
 
   sparkplug::EdgeNode pub(std::move(pub_config));
 
@@ -241,7 +241,7 @@ void test_multiple_commands() {
   sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
                                          .client_id = "test_multi_cmd_pub",
                                          .group_id = "TestGroup",
-                                         .edge_node_id = "ScadaHost"};
+                                         .edge_node_id = "ScadaHostCmd03"};
 
   sparkplug::EdgeNode pub(std::move(pub_config));
 
@@ -321,7 +321,7 @@ void test_both_callbacks_invoked() {
   sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
                                          .client_id = "test_both_callbacks_pub",
                                          .group_id = "TestGroup",
-                                         .edge_node_id = "ScadaHost"};
+                                         .edge_node_id = "ScadaHostCmd04"};
 
   sparkplug::EdgeNode pub(std::move(pub_config));
 
