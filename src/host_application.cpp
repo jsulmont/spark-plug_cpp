@@ -14,7 +14,7 @@
 namespace sparkplug {
 
 namespace {
-constexpr int CONNECTION_TIMEOUT_MS = 5000;
+constexpr int CONNECTION_TIMEOUT_MS = 10000; // Increased from 5s to 10s
 constexpr int DISCONNECT_TIMEOUT_MS = 11000;
 constexpr uint64_t SEQ_NUMBER_MAX = 256;
 
@@ -26,7 +26,13 @@ void on_connect_success(void* context, MQTTAsync_successData* response) {
 
 void on_connect_failure(void* context, MQTTAsync_failureData* response) {
   auto* promise = static_cast<std::promise<void>*>(context);
-  auto error = std::format("Connection failed: code={}", response ? response->code : -1);
+  std::string error;
+  if (response) {
+    error = std::format("Connection failed: code={}, message={}", response->code,
+                        response->message ? response->message : "none");
+  } else {
+    error = "Connection failed: no response data";
+  }
   promise->set_exception(std::make_exception_ptr(std::runtime_error(error)));
 }
 
@@ -50,21 +56,20 @@ HostApplication::HostApplication(Config config) : config_(std::move(config)) {
 HostApplication::~HostApplication() {
   if (client_ && is_connected_) {
     (void)disconnect();
+  } else if (client_) {
+    MQTTAsync_setCallbacks(client_.get(), nullptr, nullptr, nullptr, nullptr);
   }
 }
 
 HostApplication::HostApplication(HostApplication&& other) noexcept
     : config_(std::move(other.config_)), client_(std::move(other.client_)),
-      is_connected_(other.is_connected_)
-// mutex_ is default-constructed (mutexes are not moveable)
-{
+      is_connected_(other.is_connected_) {
   std::lock_guard<std::mutex> lock(other.mutex_);
   other.is_connected_ = false;
 }
 
 HostApplication& HostApplication::operator=(HostApplication&& other) noexcept {
   if (this != &other) {
-    // Lock both mutexes in consistent order to avoid deadlock
     std::lock(mutex_, other.mutex_);
     std::lock_guard<std::mutex> lock1(mutex_, std::adopt_lock);
     std::lock_guard<std::mutex> lock2(other.mutex_, std::adopt_lock);
@@ -100,7 +105,6 @@ std::expected<void, std::string> HostApplication::connect() {
   }
   client_ = MQTTAsyncHandle(raw_client);
 
-  // Set up MQTT callbacks for receiving messages
   rc = MQTTAsync_setCallbacks(client_.get(), this, on_connection_lost, on_message_arrived, nullptr);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to set callbacks: {}", rc));
@@ -110,7 +114,6 @@ std::expected<void, std::string> HostApplication::connect() {
   conn_opts.keepAliveInterval = config_.keep_alive_interval;
   conn_opts.cleansession = config_.clean_session;
 
-  // Set credentials if provided
   if (config_.username.has_value()) {
     conn_opts.username = config_.username.value().c_str();
   }
@@ -132,9 +135,6 @@ std::expected<void, std::string> HostApplication::connect() {
     conn_opts.ssl = &ssl_opts;
   }
 
-  // NOTE: No Last Will Testament for Host Applications (unlike Edge Nodes)
-  // Host Applications should explicitly call publish_state_death() before disconnect()
-
   std::promise<void> connect_promise;
   auto connect_future = connect_promise.get_future();
 
@@ -144,17 +144,23 @@ std::expected<void, std::string> HostApplication::connect() {
 
   rc = MQTTAsync_connect(client_.get(), &conn_opts);
   if (rc != MQTTASYNC_SUCCESS) {
+    MQTTAsync_setCallbacks(client_.get(), nullptr, nullptr, nullptr, nullptr);
     return std::unexpected(std::format("Failed to connect: {}", rc));
   }
 
   auto status = connect_future.wait_for(std::chrono::milliseconds(CONNECTION_TIMEOUT_MS));
   if (status == std::future_status::timeout) {
+    MQTTAsync_setCallbacks(client_.get(), nullptr, nullptr, nullptr, nullptr);
+    MQTTAsync_disconnectOptions disc_opts = MQTTAsync_disconnectOptions_initializer;
+    disc_opts.timeout = 1000;
+    MQTTAsync_disconnect(client_.get(), &disc_opts);
     return std::unexpected("Connection timeout");
   }
 
   try {
     connect_future.get();
   } catch (const std::exception& e) {
+    MQTTAsync_setCallbacks(client_.get(), nullptr, nullptr, nullptr, nullptr);
     return std::unexpected(e.what());
   }
 
@@ -519,7 +525,6 @@ bool HostApplication::validate_message(const Topic& topic,
       if (seq != expected_seq) {
         log(LogLevel::WARN, std::format("Sequence number gap for {} (got {}, expected {})", node_id,
                                         seq, expected_seq));
-        // Don't reject, just warn - could be packet loss
       }
 
       state.last_seq = seq;
@@ -580,7 +585,6 @@ bool HostApplication::validate_message(const Topic& topic,
         log(LogLevel::WARN,
             std::format("Sequence number gap for device '{}' on {} (got {}, expected {})",
                         topic.device_id, node_id, seq, expected_seq));
-        // Don't reject, just warn - could be packet loss
       }
 
       device_state.last_seq = seq;
@@ -619,7 +623,6 @@ int HostApplication::on_message_arrived(void* context, char* topicName, int topi
 
   std::string topic_str(topicName, topicLen > 0 ? topicLen : strlen(topicName));
 
-  // Handle STATE messages (plain text, not Sparkplug B)
   if (topic_str.starts_with("STATE/")) {
     std::string state_value(static_cast<char*>(message->payload), message->payloadlen);
 
@@ -645,7 +648,7 @@ int HostApplication::on_message_arrived(void* context, char* topicName, int topi
   auto topic_result = Topic::parse(topic_str);
 
   if (!topic_result) {
-    host_app->log(LogLevel::ERROR, std::format("Failed to parse topic: {}", topic_str));
+    host_app->log(LogLevel::DEBUG, std::format("Ignoring non-Sparkplug topic: {}", topic_str));
     MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;
@@ -659,13 +662,11 @@ int HostApplication::on_message_arrived(void* context, char* topicName, int topi
     return 1;
   }
 
-  // Validate and update node state
   {
     std::lock_guard<std::mutex> lock(host_app->mutex_);
     host_app->validate_message(*topic_result, payload);
   }
 
-  // Invoke user callback
   if (host_app->config_.message_callback) {
     try {
       host_app->config_.message_callback(*topic_result, payload);

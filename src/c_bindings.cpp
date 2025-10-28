@@ -391,7 +391,8 @@ sparkplug_subscriber_t* sparkplug_subscriber_create(const char* broker_url, cons
         if ((topic.message_type == sparkplug::MessageType::NCMD ||
              topic.message_type == sparkplug::MessageType::DCMD) &&
             sub->command_callback) {
-          sub->command_callback(topic_str.c_str(), data.data(), data.size(), sub->command_user_data);
+          sub->command_callback(topic_str.c_str(), data.data(), data.size(),
+                                sub->command_user_data);
         } else {
           sub->callback(topic_str.c_str(), data.data(), data.size(), sub->user_data);
         }
