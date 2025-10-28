@@ -6,8 +6,8 @@
 #include <thread>
 #include <vector>
 
-#include <sparkplug/publisher.hpp>
-#include <sparkplug/subscriber.hpp>
+#include <sparkplug/edge_node.hpp>
+#include <sparkplug/host_application.hpp>
 
 // Test result tracking
 struct TestResult {
@@ -29,12 +29,12 @@ void report_test(const std::string& name, bool passed, const std::string& msg = 
 
 // Test 1: DBIRTH requires NBIRTH first
 void test_dbirth_requires_nbirth() {
-  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
-                                      .client_id = "test_device_nbirth",
-                                      .group_id = "TestGroup",
-                                      .edge_node_id = "TestNode"};
+  sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
+                                     .client_id = "test_device_nbirth",
+                                     .group_id = "TestGroup",
+                                     .edge_node_id = "TestNode"};
 
-  sparkplug::Publisher pub(std::move(config));
+  sparkplug::EdgeNode pub(std::move(config));
 
   if (!pub.connect()) {
     report_test("DBIRTH requires NBIRTH first", false, "Failed to connect");
@@ -69,18 +69,19 @@ void test_dbirth_sequence_zero() {
     }
   };
 
-  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
-                                           .client_id = "test_dbirth_seq_sub",
-                                           .group_id = "TestGroup"};
+  sparkplug::HostApplication::Config sub_config{.broker_url = "tcp://localhost:1883",
+                                                .client_id = "test_dbirth_seq_sub",
+                                                .host_id = "TestGroup"};
 
-  sparkplug::Subscriber sub(std::move(sub_config), callback);
+  sub_config.message_callback = callback;
+  sparkplug::HostApplication sub(std::move(sub_config));
 
   if (!sub.connect()) {
     report_test("DBIRTH sequence zero", false, "Subscriber failed to connect");
     return;
   }
 
-  if (!sub.subscribe_all()) {
+  if (!sub.subscribe_all_groups()) {
     report_test("DBIRTH sequence zero", false, "Subscribe failed");
     (void)sub.disconnect();
     return;
@@ -88,12 +89,12 @@ void test_dbirth_sequence_zero() {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-  sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
-                                          .client_id = "test_dbirth_seq_pub",
-                                          .group_id = "TestGroup",
-                                          .edge_node_id = "TestNode"};
+  sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
+                                         .client_id = "test_dbirth_seq_pub",
+                                         .group_id = "TestGroup",
+                                         .edge_node_id = "TestNode"};
 
-  sparkplug::Publisher pub(std::move(pub_config));
+  sparkplug::EdgeNode pub(std::move(pub_config));
 
   if (!pub.connect()) {
     report_test("DBIRTH sequence zero", false, "Publisher failed to connect");
@@ -138,12 +139,12 @@ void test_dbirth_sequence_zero() {
 
 // Test 3: DDATA requires DBIRTH first
 void test_ddata_requires_dbirth() {
-  sparkplug::Publisher::Config config{.broker_url = "tcp://localhost:1883",
-                                      .client_id = "test_ddata_birth",
-                                      .group_id = "TestGroup",
-                                      .edge_node_id = "TestNode"};
+  sparkplug::EdgeNode::Config config{.broker_url = "tcp://localhost:1883",
+                                     .client_id = "test_ddata_birth",
+                                     .group_id = "TestGroup",
+                                     .edge_node_id = "TestNode"};
 
-  sparkplug::Publisher pub(std::move(config));
+  sparkplug::EdgeNode pub(std::move(config));
 
   if (!pub.connect()) {
     report_test("DDATA requires DBIRTH first", false, "Failed to connect");
@@ -194,18 +195,19 @@ void test_device_sequence_independent() {
     }
   };
 
-  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
-                                           .client_id = "test_seq_indep_sub",
-                                           .group_id = "TestGroup"};
+  sparkplug::HostApplication::Config sub_config{.broker_url = "tcp://localhost:1883",
+                                                .client_id = "test_seq_indep_sub",
+                                                .host_id = "TestGroup"};
 
-  sparkplug::Subscriber sub(std::move(sub_config), callback);
+  sub_config.message_callback = callback;
+  sparkplug::HostApplication sub(std::move(sub_config));
 
   if (!sub.connect()) {
     report_test("Device sequence independent", false, "Subscriber failed to connect");
     return;
   }
 
-  if (!sub.subscribe_all()) {
+  if (!sub.subscribe_all_groups()) {
     report_test("Device sequence independent", false, "Subscribe failed");
     (void)sub.disconnect();
     return;
@@ -213,12 +215,12 @@ void test_device_sequence_independent() {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-  sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
-                                          .client_id = "test_seq_indep_pub",
-                                          .group_id = "TestGroup",
-                                          .edge_node_id = "TestNode"};
+  sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
+                                         .client_id = "test_seq_indep_pub",
+                                         .group_id = "TestGroup",
+                                         .edge_node_id = "TestNode"};
 
-  sparkplug::Publisher pub(std::move(pub_config));
+  sparkplug::EdgeNode pub(std::move(pub_config));
 
   if (!pub.connect()) {
     report_test("Device sequence independent", false, "Publisher failed to connect");
@@ -300,18 +302,19 @@ void test_ddata_sequence_increments() {
     }
   };
 
-  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
-                                           .client_id = "test_ddata_seq_sub",
-                                           .group_id = "TestGroup"};
+  sparkplug::HostApplication::Config sub_config{.broker_url = "tcp://localhost:1883",
+                                                .client_id = "test_ddata_seq_sub",
+                                                .host_id = "TestGroup"};
 
-  sparkplug::Subscriber sub(std::move(sub_config), callback);
+  sub_config.message_callback = callback;
+  sparkplug::HostApplication sub(std::move(sub_config));
 
   if (!sub.connect()) {
     report_test("DDATA sequence increments (TCK)", false, "Subscriber failed to connect");
     return;
   }
 
-  if (!sub.subscribe_all()) {
+  if (!sub.subscribe_all_groups()) {
     report_test("DDATA sequence increments (TCK)", false, "Subscribe failed");
     (void)sub.disconnect();
     return;
@@ -319,12 +322,12 @@ void test_ddata_sequence_increments() {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-  sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
-                                          .client_id = "test_ddata_seq_pub",
-                                          .group_id = "TestGroup",
-                                          .edge_node_id = "TestNode"};
+  sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
+                                         .client_id = "test_ddata_seq_pub",
+                                         .group_id = "TestGroup",
+                                         .edge_node_id = "TestNode"};
 
-  sparkplug::Publisher pub(std::move(pub_config));
+  sparkplug::EdgeNode pub(std::move(pub_config));
 
   if (!pub.connect()) {
     report_test("DDATA sequence increments (TCK)", false, "Publisher failed to connect");
@@ -415,18 +418,18 @@ void test_ddeath() {
     }
   };
 
-  sparkplug::Subscriber::Config sub_config{.broker_url = "tcp://localhost:1883",
-                                           .client_id = "test_ddeath_sub",
-                                           .group_id = "TestGroup"};
+  sparkplug::HostApplication::Config sub_config{
+      .broker_url = "tcp://localhost:1883", .client_id = "test_ddeath_sub", .host_id = "TestGroup"};
 
-  sparkplug::Subscriber sub(std::move(sub_config), callback);
+  sub_config.message_callback = callback;
+  sparkplug::HostApplication sub(std::move(sub_config));
 
   if (!sub.connect()) {
     report_test("DDEATH marks device offline", false, "Subscriber failed to connect");
     return;
   }
 
-  if (!sub.subscribe_all()) {
+  if (!sub.subscribe_all_groups()) {
     report_test("DDEATH marks device offline", false, "Subscribe failed");
     (void)sub.disconnect();
     return;
@@ -434,12 +437,12 @@ void test_ddeath() {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-  sparkplug::Publisher::Config pub_config{.broker_url = "tcp://localhost:1883",
-                                          .client_id = "test_ddeath_pub",
-                                          .group_id = "TestGroup",
-                                          .edge_node_id = "TestNode"};
+  sparkplug::EdgeNode::Config pub_config{.broker_url = "tcp://localhost:1883",
+                                         .client_id = "test_ddeath_pub",
+                                         .group_id = "TestGroup",
+                                         .edge_node_id = "TestNode"};
 
-  sparkplug::Publisher pub(std::move(pub_config));
+  sparkplug::EdgeNode pub(std::move(pub_config));
 
   if (!pub.connect()) {
     report_test("DDEATH marks device offline", false, "Publisher failed to connect");

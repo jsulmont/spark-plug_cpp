@@ -7,7 +7,7 @@
 #include <utility>
 
 #include <sparkplug/datatype.hpp>
-#include <sparkplug/subscriber.hpp>
+#include <sparkplug/host_application.hpp>
 
 std::atomic<bool> running{true};
 std::atomic<int> message_count{0};
@@ -91,15 +91,6 @@ int main() {
   std::signal(SIGINT, signal_handler);
   std::signal(SIGTERM, signal_handler);
 
-  sparkplug::Subscriber::Config config{
-      .broker_url = "tcp://localhost:1883",
-      .client_id = "sparkplug_subscriber_debug",
-      .group_id = "Energy",
-      .qos = 1,
-      .clean_session = true,
-      .validate_sequence = true // Enable validation to see warnings
-  };
-
   auto message_handler = [](const sparkplug::Topic& topic,
                             const org::eclipse::tahu::protobuf::Payload& payload) {
     int count = ++message_count;
@@ -138,7 +129,16 @@ int main() {
     std::cout << std::endl; // Flush immediately
   };
 
-  sparkplug::Subscriber subscriber(std::move(config), std::move(message_handler));
+  sparkplug::HostApplication::Config config{.broker_url = "tcp://localhost:1883",
+                                            .client_id = "sparkplug_subscriber_debug",
+                                            .host_id = "Energy",
+                                            .qos = 1,
+                                            .clean_session = true,
+                                            .validate_sequence =
+                                                true, // Enable validation to see warnings
+                                            .message_callback = message_handler};
+
+  sparkplug::HostApplication subscriber(std::move(config));
 
   std::cout << "🔧 Debug Subscriber Starting...\n";
 
@@ -150,7 +150,7 @@ int main() {
 
   std::cout << "✓ Connected to broker at tcp://localhost:1883\n";
 
-  auto subscribe_result = subscriber.subscribe_all();
+  auto subscribe_result = subscriber.subscribe_all_groups();
   if (!subscribe_result) {
     std::cerr << "❌ Failed to subscribe: " << subscribe_result.error() << "\n";
     return 1;

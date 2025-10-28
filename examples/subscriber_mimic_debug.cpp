@@ -14,7 +14,7 @@
 #include <utility>
 
 #include <sparkplug/datatype.hpp>
-#include <sparkplug/subscriber.hpp>
+#include <sparkplug/host_application.hpp>
 
 std::atomic<bool> running{true};
 std::atomic<int> message_count{0};
@@ -112,15 +112,6 @@ int main() {
 
   // Use "+" as group_id (MQTT single-level wildcard)
   // This will expand to "spBv1.0/+/#" to catch all groups
-  sparkplug::Subscriber::Config config{
-      .broker_url = "tcp://broker.hivemq.com:1883",
-      .client_id = "sparkplug_mimic_debug_subscriber",
-      .group_id = "+", // Wildcard to match all groups
-      .qos = 1,
-      .clean_session = true,
-      .validate_sequence = false // Disable validation for public demo (many publishers)
-  };
-
   auto message_handler = [](const sparkplug::Topic& topic,
                             const org::eclipse::tahu::protobuf::Payload& payload) {
     int count = ++message_count;
@@ -174,7 +165,16 @@ int main() {
     std::cout << std::endl; // Flush immediately
   };
 
-  sparkplug::Subscriber subscriber(std::move(config), std::move(message_handler));
+  sparkplug::HostApplication::Config config{
+      .broker_url = "tcp://broker.hivemq.com:1883",
+      .client_id = "sparkplug_mimic_debug_subscriber",
+      .host_id = "+", // Wildcard to match all groups
+      .qos = 1,
+      .clean_session = true,
+      .validate_sequence = false, // Disable validation for public demo (many publishers)
+      .message_callback = message_handler};
+
+  sparkplug::HostApplication subscriber(std::move(config));
 
   std::cout << "Connecting to broker...\n";
 
@@ -187,7 +187,7 @@ int main() {
 
   std::cout << "Connected successfully!\n";
 
-  auto subscribe_result = subscriber.subscribe_all();
+  auto subscribe_result = subscriber.subscribe_all_groups();
   if (!subscribe_result) {
     std::cerr << "Failed to subscribe: " << subscribe_result.error() << "\n";
     return 1;

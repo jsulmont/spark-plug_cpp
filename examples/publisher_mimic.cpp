@@ -13,8 +13,8 @@
 #include <iostream>
 #include <thread>
 
+#include <sparkplug/edge_node.hpp>
 #include <sparkplug/payload_builder.hpp>
-#include <sparkplug/publisher.hpp>
 
 std::atomic<bool> running{true};
 
@@ -70,7 +70,7 @@ int main() {
     std::cout << "\n";
   };
 
-  sparkplug::Publisher::Config config{
+  sparkplug::EdgeNode::Config config{
       .broker_url = "tcp://broker.hivemq.com:1883",
       .client_id = "sparkplug_cpp_mimic_publisher",
       .group_id = "TestGroup",
@@ -82,7 +82,7 @@ int main() {
       .command_callback = command_callback // Subscribe to NCMD commands
   };
 
-  sparkplug::Publisher publisher(std::move(config));
+  sparkplug::EdgeNode publisher(std::move(config));
 
   std::cout << "Connecting to broker...\n";
   auto connect_result = publisher.connect();
@@ -158,9 +158,9 @@ int main() {
     sparkplug::PayloadBuilder data;
 
     // Simulate sensor changes
-    temperature += (rand() % 10 - 5) * 0.1; // Random walk
-    humidity += (rand() % 10 - 5) * 0.5;
-    pressure += (rand() % 10 - 5) * 0.1;
+    temperature += (static_cast<int>(arc4random_uniform(10)) - 5) * 0.1; // Random walk
+    humidity += (static_cast<int>(arc4random_uniform(10)) - 5) * 0.5;
+    pressure += (static_cast<int>(arc4random_uniform(10)) - 5) * 0.1;
     uptime += 1;
 
     // Use aliases for bandwidth efficiency
