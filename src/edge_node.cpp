@@ -181,8 +181,7 @@ std::expected<void, std::string> EdgeNode::connect() {
 
   // Set callbacks (MUST be called after creating client but before connecting)
   // Note: Paho requires message_arrived callback to be non-null, so always pass it
-  rc = MQTTAsync_setCallbacks(client_.get(), this, on_connection_lost, on_message_arrived,
-                              nullptr);
+  rc = MQTTAsync_setCallbacks(client_.get(), this, on_connection_lost, on_message_arrived, nullptr);
   if (rc != MQTTASYNC_SUCCESS) {
     return std::unexpected(std::format("Failed to set callbacks: {}", rc));
   }
